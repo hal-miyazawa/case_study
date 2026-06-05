@@ -1,5 +1,7 @@
 # React + TypeScript + Vite
 
+Project-specific notes are in [docs/app-notes.md](docs/app-notes.md).
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

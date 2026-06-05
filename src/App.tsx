@@ -1,121 +1,117 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
 import './App.css'
 
+type Dialogue = {
+  speaker: string
+  text: string
+}
+
+const dialogues: Dialogue[] = [
+  {
+    speaker: '主人公',
+    text: '……今の夢、なんだったんだ。',
+  },
+  {
+    speaker: '主人公',
+    text: '家具が倒れてきて、逃げることもできなかった。',
+  },
+  {
+    speaker: '主人公',
+    text: 'このままだと、本当に同じことが起きる気がする。',
+  },
+  {
+    speaker: '主人公',
+    text: '何か対策しないと……。',
+  },
+]
+
 function App() {
-  const [count, setCount] = useState(0)
+  const [dialogueIndex, setDialogueIndex] = useState(0)
+  const [selectedChoice, setSelectedChoice] = useState<string | null>(null)
+  const isChoiceScene = dialogueIndex === dialogues.length - 1 && !selectedChoice
+  const currentDialogue = selectedChoice
+    ? {
+        speaker: '主人公',
+        text: `「${selectedChoice}」を選んだ。`,
+      }
+    : isChoiceScene
+      ? {
+          speaker: 'テレビ',
+          text: 'Q どうしますか',
+        }
+      : dialogues[dialogueIndex]
+  const isLastDialogue = dialogueIndex === dialogues.length - 1
+
+  const handleNextDialogue = () => {
+    if (isChoiceScene) {
+      return
+    }
+
+    if (selectedChoice) {
+      setSelectedChoice(null)
+      setDialogueIndex(0)
+      return
+    }
+
+    setDialogueIndex((current) =>
+      current === dialogues.length - 1 ? 0 : current + 1,
+    )
+  }
+
+  const handleSelectChoice = (choice: string) => {
+    setSelectedChoice(choice)
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <main className="game-screen">
+      <section className="scene" aria-label="主人公の部屋">
+        <div className="wall">
+          <div className="lamp"></div>
+          <div className="clock">12</div>
+          <div className="door"></div>
+          <div className="window"></div>
+          <div className="shelf"></div>
+          <div className="tv"></div>
+          <div className="table"></div>
+          <div className="plant plant-left"></div>
+          <div className="plant plant-right"></div>
+          <div className="kitchen"></div>
+          <div className="character"></div>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
+
+        {isChoiceScene && (
+          <div className="choice-layer" aria-label="行動を選択">
+            <button
+              type="button"
+              className="choice-button choice-left"
+              onClick={() => handleSelectChoice('買い物に行く')}
+            >
+              買い物に行く
+            </button>
+            <button
+              type="button"
+              className="choice-button choice-right"
+              onClick={() => handleSelectChoice('大声で周りに伝える')}
+            >
+              大声で周りに伝える
+            </button>
+          </div>
+        )}
+
         <button
           type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
+          className="message-box"
+          onClick={handleNextDialogue}
+          aria-label={isChoiceScene ? '選択肢を選んでください' : '次のセリフへ進む'}
         >
-          Count is {count}
+          <span className="nameplate">{currentDialogue.speaker}</span>
+          <span className="dialogue-text">{currentDialogue.text}</span>
+          <span className="next-mark">
+            {isChoiceScene ? '' : isLastDialogue ? '↺' : '▼'}
+          </span>
         </button>
       </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+    </main>
   )
 }
 
