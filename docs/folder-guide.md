@@ -409,3 +409,6 @@ TypeScript の設定ファイルです。
 
 最初から `main.tsx`、`vite.config.ts`、`tsconfig` 系を触る必要はほとんどありません。
 画面の内容や見た目を変えたい場合は、まず `App.tsx` と `App.css` を見れば大丈夫です。
+
+
+test鎌田真輝
