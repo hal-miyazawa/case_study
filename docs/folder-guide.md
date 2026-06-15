@@ -6,13 +6,14 @@
 ## 全体の構成
 
 このプロジェクトは、React + TypeScript + Vite で作られたフロントエンドアプリです。
-今の段階では、防災・災害予防をテーマにした会話ノベル風の1画面デモになっています。
+現在は、地震が起こる前に防災対策を選ぶノベルゲーム風のデモです。
 
-主なフォルダとファイルは次の通りです。
+主な構成は次の通りです。
 
 ```text
 case_study/
 ├─ docs/
+│  ├─ ai-api-setup.md
 │  ├─ app-notes.md
 │  ├─ folder-guide.md
 │  ├─ project-plan.md
@@ -22,15 +23,12 @@ case_study/
 │  └─ icons.svg
 ├─ src/
 │  ├─ assets/
-│  │  ├─ hero.png
-│  │  ├─ react.svg
-│  │  └─ vite.svg
+│  │  ├─ backgrounds/
+│  │  └─ icons/
 │  ├─ App.css
 │  ├─ App.tsx
 │  ├─ index.css
 │  └─ main.tsx
-├─ dist/
-├─ node_modules/
 ├─ index.html
 ├─ package.json
 ├─ package-lock.json
@@ -40,183 +38,143 @@ case_study/
 
 ## docs の中身
 
-`docs` は、アプリの企画や作業メモを置く場所です。
+`docs` は、企画や作業メモを置く場所です。
 画面には直接表示されません。
 
-### app-notes.md
-
-このアプリの現在の状態をまとめたメモです。
-どんな技術を使っているか、主要ファイルが何か、今の実装がどうなっているかが書かれています。
-
-### project-plan.md
-
-アプリ全体の企画書です。
-防災ケーススタディとしてどんな体験にしたいか、ゲームの流れ、分岐、エンディング案、追加したい機能などが書かれています。
-
-### story-flow.md
-
-ストーリーの流れを詳しく書いた資料です。
-どの画面で何が起きるか、選択肢によってどう分岐するか、最小版ではどんな判定にするかが書かれています。
-
-### folder-guide.md
-
-このファイルです。
-フォルダ全体と、編集する場所の見方を説明しています。
+- `app-notes.md`: 現在の実装状態のメモ
+- `story-flow.md`: ストーリー、画面、分岐、AI活用方針
+- `project-plan.md`: 企画全体のメモ
+- `folder-guide.md`: このファイル
+- `ai-api-setup.md`: OpenAI API の確認方法とチームでの扱い方
 
 ## public の中身
 
-`public` は、アプリからそのまま使える静的ファイルを置く場所です。
-画像やアイコンなど、加工せずに配信したいファイルを入れます。
+`public` は、ブラウザからそのまま参照する静的ファイルを置く場所です。
 
-### favicon.svg
+- `favicon.svg`: ブラウザタブのアイコン
+- `icons.svg`: SVG アイコンスプライト
 
-ブラウザのタブなどに表示されるアイコンです。
-タブの小さいマークを変えたい場合は、このファイルを差し替えます。
-
-### icons.svg
-
-SVG アイコンをまとめたファイルです。
-今後、画面内でアイコンを使うときの素材置き場として使えます。
+通常のゲーム背景やボタン用アイコンは、`public` ではなく `src/assets` に置きます。
 
 ## src の中身
 
 `src` は、実際のアプリ画面を作っている中心部分です。
-今の画面を変えたい場合は、基本的に `src` の中を編集します。
 
 ### main.tsx
 
 React アプリの入口です。
-
-```tsx
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
-```
-
-このコードは、`index.html` にある `root` という場所へ `App` を表示する、という意味です。
-普段の画面編集では、ここを触ることはあまりありません。
+基本的に画面を作る作業では触りません。
 
 ### App.tsx
 
-今のアプリのメイン画面です。
-セリフ、選択肢、クリックしたときの動きはここに書かれています。
+現在のメイン実装です。
 
-今の `App.tsx` には、主に次の役割があります。
+ここに書かれている主なもの:
 
-- `dialogues` にセリフの一覧を書く
-- `useState` で、今どのセリフを表示しているかを覚える
-- 最後のセリフまで進んだら選択肢を出す
-- 選択肢を押したら、選んだ内容を表示する
-- もう一度クリックしたら最初に戻る
+- 画面状態 `Screen`
+- 予告本画面のセリフ
+- 通常部屋画面の導入セリフ
+- 対策フェーズの表示
+- ショップ / リュックアイコン
+- リュック画面への遷移
+- リュック画面の仮アイテム一覧
+- アイテムホバー時の説明表示
+- アイテムクリック時の `はい` / `いいえ`
+- テキストログ
+- UI非表示ボタン
 
-たとえば、セリフを変えたい場合は `dialogues` の中を編集します。
+今の画面遷移は次の流れです。
 
-```tsx
-const dialogues: Dialogue[] = [
-  {
-    speaker: '主人公',
-    text: '……今の夢、なんだったんだ。',
-  },
-]
+```text
+予告本画面
+↓
+通常部屋画面
+↓
+-対策フェーズ開始-
+↓
+対策フェーズ
+↓
+リュック画面
 ```
-
-`speaker` は名前欄に出る文字です。
-`text` は黒いメッセージボックスに出る本文です。
-
-選択肢の文字を変えたい場合は、次のような部分を編集します。
-
-```tsx
-onClick={() => handleSelectChoice('買い物に行く')}
-```
-
-ボタンに表示される文字も近くにあります。
-
-```tsx
-買い物に行く
-```
-
-選択肢の数を増やしたい場合も `App.tsx` を編集します。
-ただし、数を増やすとボタン配置の調整が必要になることがあるので、その場合は `App.css` も一緒に確認します。
 
 ### App.css
 
 `App.tsx` の見た目を決めているファイルです。
-背景、部屋の家具、主人公、選択肢ボタン、メッセージボックスなどの見た目はここで調整します。
 
-よく編集する場所は次の通りです。
+よく編集する場所:
 
-| 変えたいもの | 編集する CSS |
+| 変えたいもの | 編集するCSS |
 | --- | --- |
-| 画面全体の背景色 | `.game-screen` |
-| 部屋の背景 | `.scene` |
-| ランプ | `.lamp` |
-| 時計 | `.clock` |
-| ドア | `.door` |
-| 窓 | `.window` |
-| テレビ | `.tv` |
-| テーブル | `.table` |
-| 主人公 | `.character` |
-| 植物 | `.plant`, `.plant-left`, `.plant-right` |
-| 選択肢ボタン | `.choice-button` |
-| 選択肢の置き場所 | `.choice-layer` |
-| 黒いメッセージボックス | `.message-box` |
+| 背景の表示方法 | `.scene` |
+| 暗転演出 | `.scene-transition`, `.transition-title` |
+| 左上の対策フェーズ表示 | `.phase-hud` |
+| 右上の残り日数 | `.day-counter` |
+| ショップ / リュックアイコン | `.action-icons`, `.action-icon-button` |
+| テキストログ / UI非表示ボタン | `.log-toggle`, `.ui-toggle` |
+| リュック画面の戻るボタン | `.backpack-top-actions`, `.back-button` |
+| リュックのアイテム一覧 | `.inventory-panel` |
+| アイテムの行 | `.inventory-panel li button` |
+| アイテム用アイコン枠 | `.item-icon-slot` |
+| はい / いいえ | `.confirm-actions` |
+| テキストログ画面 | `.text-log-overlay`, `.text-log-panel`, `.text-log-body` |
+| テキストボックス | `.message-box` |
 | 名前欄 | `.nameplate` |
 | セリフ本文 | `.dialogue-text` |
-| 右下の次へマーク | `.next-mark` |
-| スマホ表示の調整 | `@media (max-width: 780px)` |
+| 次へマーク | `.next-mark` |
 
-たとえば、黒いメッセージボックスの色を変えたい場合は `.message-box` の `background` を変えます。
-
-```css
-.message-box {
-  background: #050505;
-}
-```
-
-選択肢ボタンを大きくしたい場合は `.choice-button` の `min-height` や `padding` を変えます。
-
-```css
-.choice-button {
-  min-height: 18vh;
-  padding: 24px 44px;
-}
-```
-
-スマホだけ見た目を変えたい場合は、下の方にある `@media (max-width: 780px)` の中を編集します。
+今はスマホ用の `@media` は一旦削除しています。
+デスクトップ画面を優先して調整中です。
 
 ### index.css
 
 アプリ全体に共通する基本スタイルです。
-フォント、背景、body の余白、button の文字設定などがあります。
 
-今の内容では、次のようなことをしています。
+現在は次のような設定があります。
 
-- アプリ全体のフォントを決める
-- body の余白を消す
-- ボタンの文字が周囲と同じフォントになるようにする
-- `#root` が画面の高さを持つようにする
+- フォント指定
+- body の余白削除
+- ボタンのフォント継承
+- テキスト選択防止
+- 画像ドラッグ防止
 
-アプリ全体の文字の雰囲気を変えたい場合は、ここを見ます。
-ただし、特定のボタンやメッセージボックスだけを変えたい場合は `App.css` を編集します。
+長押しやドラッグで文字や画像が青く選択されないようにする設定もここにあります。
 
-### assets
+## assets の中身
 
-画像や SVG など、アプリ内で読み込む素材を置く場所です。
+### backgrounds
 
-今は次のファイルがあります。
+画面背景画像を置く場所です。
 
-- `hero.png`
-- `react.svg`
-- `vite.svg`
+現在ある主な背景:
 
-今の `App.tsx` では、これらの画像は直接使われていません。
-今後、背景画像やキャラクター画像を使いたい場合は、`src/assets` に入れて `App.tsx` から読み込む形にできます。
+- `予告本画面.png`
+- `通常部屋画面.png`
+- `リュック画面.png`
+- `ショップ画面.png`
+- `災害後画面.png`
+- `BadEnd.png`
+- `TrueEnd.png`
 
-## src のどこを編集すると何が変わるか
+背景を追加したら、基本的には `src/App.tsx` で import して使います。
 
-初心者の場合は、まず次のように考えると分かりやすいです。
+例:
+
+```tsx
+import shopBackground from './assets/backgrounds/ショップ画面.png'
+```
+
+### icons
+
+自由行動フェーズなどで使う UI アイコンを置く場所です。
+
+現在あるアイコン:
+
+- `ショップicon.png`
+- `リュックicon.png`
+
+アイコンを追加したら、`src/App.tsx` で import してボタン画像として使います。
+
+## どこを編集すると何が変わるか
 
 ### セリフを変えたい
 
@@ -228,14 +186,48 @@ src/App.tsx
 
 見る場所:
 
-```tsx
-const dialogues: Dialogue[] = [
+- `bookWarningDialogues`
+- `roomIntroDialogues`
+- `roomDialogue`
+
+### 画面を増やしたい
+
+編集するファイル:
+
+```text
+src/App.tsx
+src/App.css
 ```
 
-`speaker` を変えると名前欄が変わります。
-`text` を変えるとセリフ本文が変わります。
+`Screen` 型に画面名を追加し、背景画像を import して、表示条件を追加します。
 
-### 選択肢の文字を変えたい
+### 背景画像を差し替えたい
+
+編集する場所:
+
+```text
+src/assets/backgrounds/
+src/App.tsx
+```
+
+画像ファイルを `backgrounds` に置き、`App.tsx` の import を変えます。
+
+### UIの位置や大きさを変えたい
+
+編集するファイル:
+
+```text
+src/App.css
+```
+
+例:
+
+- テキストボックス位置: `.message-box`
+- ログ/UIボタン位置: `.log-toggle`, `.ui-toggle`
+- ショップ/リュック位置: `.action-icons`
+- リュック一覧位置: `.inventory-panel`
+
+### リュックのアイテムを変えたい
 
 編集するファイル:
 
@@ -246,12 +238,13 @@ src/App.tsx
 見る場所:
 
 ```tsx
-handleSelectChoice('買い物に行く')
+const backpackItems = [
 ```
 
-ボタンに表示されている文字と、選択後に表示される文字の両方を確認します。
+今は仮で18項目すべてを表示しています。
+今後はショップで購入したアイテムだけを表示する形に変える想定です。
 
-### 選択肢を増やしたい
+### テキストログを変えたい
 
 編集するファイル:
 
@@ -260,155 +253,27 @@ src/App.tsx
 src/App.css
 ```
 
-まず `App.tsx` でボタンを追加します。
-そのあと、ボタンがきれいに並ばない場合は `App.css` の `.choice-layer` や `.choice-button` を調整します。
+ログに追加する処理は `addDialogueLog`。
+見た目は `.text-log-*` のCSSです。
 
-### 背景や部屋の見た目を変えたい
+### AI連携を確認したい
 
-編集するファイル:
-
-```text
-src/App.css
-```
-
-背景色なら `.game-screen` や `.scene` を見ます。
-家具の位置や大きさなら `.door`、`.window`、`.tv`、`.table` などを見ます。
-
-### 主人公の位置や大きさを変えたい
-
-編集するファイル:
+見るファイル:
 
 ```text
-src/App.css
+docs/ai-api-setup.md
+vite.config.ts
 ```
 
-見る場所:
+今はショップ到達前まではAIを使わない方針ですが、開発用API `/api/ai-scene` は残っています。
 
-```css
-.character {
-```
+## 触る頻度が低いファイル
 
-`right` や `bottom` を変えると位置が変わります。
-`width` や `height` を変えると大きさが変わります。
+- `src/main.tsx`: React の起動部分
+- `index.html`: HTML の土台
+- `vite.config.ts`: Vite 設定と開発用API
+- `tsconfig*.json`: TypeScript 設定
+- `eslint.config.js`: ESLint設定
+- `package-lock.json`: 依存関係の固定情報
 
-### メッセージボックスの見た目を変えたい
-
-編集するファイル:
-
-```text
-src/App.css
-```
-
-見る場所:
-
-```css
-.message-box {
-```
-
-黒いボックス自体を変えるなら `.message-box`。
-名前欄を変えるなら `.nameplate`。
-セリフ本文を変えるなら `.dialogue-text`。
-右下のマークを変えるなら `.next-mark` を見ます。
-
-### 画面全体のフォントを変えたい
-
-編集するファイル:
-
-```text
-src/index.css
-```
-
-見る場所:
-
-```css
-:root {
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-}
-```
-
-全体に効く設定なので、変えるとアプリ全体の文字に影響します。
-
-### スマホ表示を直したい
-
-編集するファイル:
-
-```text
-src/App.css
-```
-
-見る場所:
-
-```css
-@media (max-width: 780px) {
-```
-
-この中に書かれている設定は、画面幅が 780px 以下のときに使われます。
-スマホでボタンが大きすぎる、文字がはみ出る、配置がずれる、という場合はここを確認します。
-
-## そのほかのファイル
-
-### index.html
-
-ブラウザが最初に読む HTML ファイルです。
-React アプリを表示するための `root` があります。
-通常の画面編集ではあまり触りません。
-
-### package.json
-
-プロジェクトの設定と、使っているライブラリ、実行コマンドが書かれています。
-
-よく使うコマンドは次の通りです。
-
-```bash
-npm run dev
-npm run build
-npm run lint
-```
-
-### package-lock.json
-
-インストールされたライブラリの正確なバージョン情報です。
-基本的に手で編集しません。
-
-### node_modules
-
-インストールされたライブラリ本体が入っています。
-基本的に手で編集しません。
-
-### dist
-
-ビルド後のファイルが入る場所です。
-`npm run build` を実行すると作られます。
-基本的に手で編集しません。
-
-### vite.config.ts
-
-Vite の設定ファイルです。
-開発サーバーやビルドの設定を変えたいときに使います。
-今の段階では、触ることは少ないです。
-
-### tsconfig.json / tsconfig.app.json / tsconfig.node.json
-
-TypeScript の設定ファイルです。
-今の段階では、触ることは少ないです。
-
-### eslint.config.js
-
-コードの書き方をチェックする ESLint の設定ファイルです。
-今の段階では、触ることは少ないです。
-
-## 初心者向けの編集順
-
-最初は、次の順番で触ると理解しやすいです。
-
-1. `src/App.tsx` の `dialogues` を編集して、セリフを変える
-2. `src/App.tsx` の選択肢ボタンの文字を変える
-3. `src/App.css` の `.message-box` や `.choice-button` を編集して見た目を変える
-4. `src/App.css` の `.character` や `.tv` を編集して、部屋の配置を変える
-5. 画面が崩れたら `@media (max-width: 780px)` も確認する
-
-最初から `main.tsx`、`vite.config.ts`、`tsconfig` 系を触る必要はほとんどありません。
-画面の内容や見た目を変えたい場合は、まず `App.tsx` と `App.css` を見れば大丈夫です。
-
-
-test鎌田真輝
+通常の画面作成では、まず `App.tsx`、`App.css`、`src/assets` を見れば大丈夫です。

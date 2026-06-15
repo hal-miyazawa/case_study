@@ -16,8 +16,16 @@
 
 body {
   margin: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 button {
   font: inherit;
+}
+
+img {
+  user-select: none;
+  -webkit-user-drag: none;
 }
