@@ -307,13 +307,15 @@ function App() {
           {isUiHidden ? 'UI表示' : 'UI非表示'}
         </button>
 
-        <button
-          type="button"
-          className={`log-toggle ${isBackpack ? 'is-backpack' : ''}`}
-          onClick={() => setIsLogOpen(true)}
-        >
-          テキストログ
-        </button>
+        {!isUiHidden && (
+          <button
+            type="button"
+            className={`log-toggle ${isBackpack ? 'is-backpack' : ''}`}
+            onClick={() => setIsLogOpen(true)}
+          >
+            テキストログ
+          </button>
+        )}
 
         {isPreparation && !isUiHidden && (
           <>
