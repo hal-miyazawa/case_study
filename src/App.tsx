@@ -5,8 +5,9 @@ import normalRoomBackground from './assets/backgrounds/通常部屋画面.png'
 import backpackIcon from './assets/icons/リュックicon.png'
 import shopIcon from './assets/icons/ショップicon.png'
 import './App.css'
+import ShopScreen from './screens/ShopScreen'
 
-type Screen = 'book-warning' | 'room-intro' | 'preparation' | 'backpack'
+type Screen = 'book-warning' | 'room-intro' | 'preparation' | 'backpack' | 'shop'
 
 type Dialogue = {
   speaker: string
@@ -151,6 +152,7 @@ function App() {
   const isRoomIntro = screen === 'room-intro'
   const isPreparation = screen === 'preparation'
   const isBackpack = screen === 'backpack'
+  const isShop = screen === 'shop'
   const currentDialogue = isBookWarning
     ? bookWarningDialogues[dialogueIndex]
     : isRoomIntro
@@ -269,6 +271,23 @@ function App() {
     }
   }
 
+  if (isShop) {
+    return (
+      <ShopScreen
+        onBack={() => {
+          addDialogueLog(roomDialogue)
+          setScreen('preparation')
+        }}
+        onBuy={(itemId) => {
+          addDialogueLog({
+            speaker: 'ナレーション',
+            text: `${itemId}を購入した。`,
+          })
+        }}
+      />
+    )
+  }
+
   return (
     <main className="game-screen">
       <section
@@ -319,28 +338,31 @@ function App() {
 
         {isPreparation && !isUiHidden && (
           <>
-            <div
-              className="phase-hud"
-              onMouseEnter={() => setHoveredAction('phase')}
-              onMouseLeave={() => setHoveredAction(null)}
-              onFocus={() => setHoveredAction('phase')}
-              onBlur={() => setHoveredAction(null)}
-              tabIndex={0}
-              aria-label="現在のフェーズ"
-            >
-              対策フェーズ
-            </div>
-            <div
-              className="day-counter"
-              onMouseEnter={() => setHoveredAction('days-left')}
-              onMouseLeave={() => setHoveredAction(null)}
-              onFocus={() => setHoveredAction('days-left')}
-              onBlur={() => setHoveredAction(null)}
-              tabIndex={0}
-              aria-label="地震発生までの残り日数"
-            >
-              残り3日
-            </div>
+            <header className="game-header">
+              <div
+                className="game-header-days"
+                onMouseEnter={() => setHoveredAction('days-left')}
+                onMouseLeave={() => setHoveredAction(null)}
+                onFocus={() => setHoveredAction('days-left')}
+                onBlur={() => setHoveredAction(null)}
+                tabIndex={0}
+                aria-label="地震発生までの残り日数"
+              >
+                災害まで3日
+              </div>
+              <div
+                className="game-header-title"
+                onMouseEnter={() => setHoveredAction('phase')}
+                onMouseLeave={() => setHoveredAction(null)}
+                onFocus={() => setHoveredAction('phase')}
+                onBlur={() => setHoveredAction(null)}
+                tabIndex={0}
+                aria-label="現在のフェーズ"
+              >
+                対策フェーズ中
+              </div>
+              <div className="game-header-action" aria-hidden="true" />
+            </header>
             <div className="action-icons" aria-label="対策行動">
               <button
                 type="button"
@@ -349,6 +371,14 @@ function App() {
                 onMouseLeave={() => setHoveredAction(null)}
                 onFocus={() => setHoveredAction('shop')}
                 onBlur={() => setHoveredAction(null)}
+                onClick={() => {
+                  setHoveredAction(null)
+                  addDialogueLog({
+                    speaker: 'ナレーション',
+                    text: 'ショップで必要な防災用品を確認しよう。',
+                  })
+                  setScreen('shop')
+                }}
               >
                 <img src={shopIcon} alt="" />
                 <span>ショップ</span>
@@ -378,10 +408,12 @@ function App() {
 
         {isBackpack && !isUiHidden && (
           <>
-            <div className="backpack-top-actions">
+            <header className="game-header">
+              <div className="game-header-days">災害まで3日</div>
+              <div className="game-header-title">リュック</div>
               <button
                 type="button"
-                className="back-button"
+                className="game-header-action"
                 onClick={() => {
                   setHoveredItem(null)
                   setSelectedItem(null)
@@ -391,7 +423,7 @@ function App() {
               >
                 対策に戻る
               </button>
-            </div>
+            </header>
             <aside className="inventory-panel" aria-label="現在持っているアイテム">
               <h2>持っているアイテム</h2>
               <ul>

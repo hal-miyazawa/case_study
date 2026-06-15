@@ -1,4 +1,5 @@
 .game-screen {
+  --outer-border-color: rgba(255, 255, 255, 0.65);
   min-height: 100svh;
   width: 100%;
   margin: 0;
@@ -69,28 +70,77 @@
   text-shadow: 0 3px 18px rgba(0, 0, 0, 0.75);
 }
 
-.phase-hud,
-.day-counter {
+.game-header {
   position: absolute;
-  z-index: 2;
-  top: 26px;
-  padding: 14px 24px;
-  border: 2px solid rgba(255, 255, 255, 0.92);
-  border-radius: 8px;
-  background: rgba(5, 5, 5, 0.72);
+  z-index: 3;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 9vh;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  border-radius: 0 0 12px 12px;
+  background: rgba(5, 5, 5, 0.7);
   color: #fff;
-  font-size: 30px;
+}
+
+.game-header-days,
+.game-header-title,
+.game-header-action {
+  min-width: 180px;
+}
+
+.game-header-days,
+.game-header-title {
+  color: #fff;
+  font-size: 24px;
   font-weight: 700;
   line-height: 1;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
-.phase-hud {
-  left: 28px;
+.game-header-title {
+  font-size: 34px;
+  text-align: center;
 }
 
-.day-counter {
-  right: 28px;
+.game-header-action {
+  padding: 0 0 0.6vh;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  justify-self: end;
+  min-width: 0;
+  text-align: right;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  transition:
+    color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.game-header-action:hover {
+  color: rgba(255, 255, 255, 0.82);
+  transform: translateY(-2px);
+}
+
+.game-header-action:focus-visible,
+.game-header-days:focus-visible,
+.game-header-title:focus-visible {
+  outline: 4px solid #f4c95d;
+  outline-offset: 4px;
+}
+
+.game-header-action[aria-hidden='true'] {
+  min-width: 180px;
+  visibility: hidden;
 }
 
 .ui-toggle {
@@ -101,7 +151,7 @@
   width: var(--control-width);
   min-height: var(--control-height);
   padding: 1.1vh 1.4vw;
-  border: 2px solid rgba(255, 255, 255, 0.92);
+  border: 2px solid var(--outer-border-color);
   border-radius: 8px;
   background: rgba(5, 5, 5, 0.72);
   color: #fff;
@@ -132,7 +182,7 @@
   width: var(--control-width);
   min-height: var(--control-height);
   padding: 1.1vh 1.4vw;
-  border: 2px solid rgba(255, 255, 255, 0.92);
+  border: 2px solid var(--outer-border-color);
   border-radius: 8px;
   background: rgba(5, 5, 5, 0.72);
   color: #fff;
@@ -161,7 +211,11 @@
   right: 4vw;
   bottom: calc(var(--control-bottom) + var(--control-height) + 4vh);
   display: grid;
+  width: max-content;
   gap: 18px;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
 }
 
 .action-icon-button {
@@ -175,6 +229,8 @@
   cursor: pointer;
   overflow: hidden;
   box-shadow: none;
+  appearance: none;
+  pointer-events: auto;
   transition: transform 0.18s ease;
 }
 
@@ -192,6 +248,7 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
+  background: transparent;
 }
 
 .action-icon-button span {
@@ -201,42 +258,6 @@
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
-}
-
-.backpack-top-actions {
-  position: absolute;
-  z-index: 3;
-  top: var(--backpack-top);
-  left: var(--backpack-left);
-  right: var(--backpack-right);
-  display: flex;
-  justify-content: flex-end;
-}
-
-.back-button {
-  min-height: var(--back-button-height);
-  padding: 1.4vh 2vw;
-  border: 2px solid rgba(255, 255, 255, 0.92);
-  border-radius: 8px;
-  background: rgba(5, 5, 5, 0.72);
-  color: #fff;
-  font-size: 24px;
-  font-weight: 700;
-  cursor: pointer;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
-  transition:
-    background 0.18s ease,
-    transform 0.18s ease;
-}
-
-.back-button:hover {
-  background: rgba(5, 5, 5, 0.84);
-  transform: translateY(-2px);
-}
-
-.back-button:focus-visible {
-  outline: 4px solid #f4c95d;
-  outline-offset: 4px;
 }
 
 .inventory-panel {
@@ -251,7 +272,7 @@
   width: auto;
   min-height: 0;
   padding: 3vh 2.4vw;
-  border: 3px solid rgba(255, 255, 255, 0.9);
+  border: 3px solid var(--outer-border-color);
   border-radius: 10px;
   background: rgba(5, 5, 5, 0.72);
   color: #fff;
@@ -351,7 +372,7 @@
 .confirm-actions button {
   min-width: 140px;
   padding: 16px 26px;
-  border: 3px solid rgba(255, 255, 255, 0.92);
+  border: 3px solid var(--outer-border-color);
   border-radius: 10px;
   background: rgba(5, 5, 5, 0.78);
   color: #fff;
@@ -384,7 +405,7 @@
   width: 69vw;
   max-height: 80vh;
   padding: 34px 42px 40px;
-  border: 4px solid rgba(255, 255, 255, 0.94);
+  border: 4px solid var(--outer-border-color);
   border-radius: 12px;
   background: rgba(5, 5, 5, 0.88);
   color: #fff;
@@ -471,7 +492,7 @@
   bottom: var(--message-bottom);
   min-height: var(--message-height);
   padding: 7vh 6vw 4vh;
-  border: 4px solid #fff;
+  border: 4px solid var(--outer-border-color);
   border-radius: 12px;
   background: rgba(5, 5, 5, 0.78);
   color: #fff;
@@ -503,7 +524,7 @@
   top: -4.2vh;
   min-width: 220px;
   padding: 0.7vh 2.6vw;
-  border: 4px solid #fff;
+  border: 4px solid var(--outer-border-color);
   border-radius: 14px;
   background: #050505;
   color: #fff;

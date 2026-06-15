@@ -56,40 +56,53 @@ export default function ShopScreen({ onBuy, onBack }: ShopScreenProps) {
   return (
     <main className="game-screen shop-bg">
 
-      <header className="shop-header-large">
-        <button className="header-back" onClick={onBack}>←</button>
-        <div className="header-title">ショップ</div>
-        <div className="header-days">災害まで {daysLeft}日</div>
+      <header className="game-header">
+        <div className="game-header-days">災害まで{daysLeft}日</div>
+        <div className="game-header-title">ショップ</div>
+        <button className="game-header-action" onClick={onBack}>部屋に戻る</button>
       </header>
 
-      <nav className="shop-tabs-top">
-        {categories.map((c) => (
-          <button
-            key={c.id}
-            className={`tab-btn ${category === c.id ? 'active' : ''}`}
-            onClick={() => setCategory(c.id)}
-          >
-            {c.label}
-          </button>
-        ))}
-      </nav>
+      <section className="shop-panel" aria-label="ショップの商品一覧">
+        <nav className="shop-category-tabs" aria-label="商品カテゴリ">
+          {categories.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className={`shop-category-tab ${category === c.id ? 'active' : ''}`}
+              onClick={() => setCategory(c.id)}
+            >
+              {c.label}
+            </button>
+          ))}
+        </nav>
 
-      <section className="shop-list-right">
-        {items[category].map((item) => (
-          <div
-            key={item.id}
-            className="shop-list-item"
-            onMouseEnter={() => setHoverItem(item)}
-            onMouseLeave={() => setHoverItem(null)}
-          >
-            <img src={item.image} className="list-icon" />
-            <div className="list-name">{item.name}</div>
-          </div>
-        ))}
+        <ul className="shop-item-grid">
+          {items[category].map((item) => (
+            <li key={item.id}>
+              <button
+                type="button"
+                className="shop-list-item"
+                onMouseEnter={() => setHoverItem(item)}
+                onMouseLeave={() => setHoverItem(null)}
+                onFocus={() => setHoverItem(item)}
+                onBlur={() => setHoverItem(null)}
+                onClick={() => onBuy(item.name)}
+              >
+                <span className="shop-item-icon-slot">
+                  <img src={item.image} className="list-icon" alt="" />
+                </span>
+                <span className="list-name">{item.name}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
       </section>
 
-      <div className="shop-info-box">
-        {hoverItem ? hoverItem.description : 'アイテムを選択してください'}
+      <div className="message-box">
+        <span className="nameplate">ナレーション</span>
+        <span className="dialogue-text">
+          {hoverItem ? hoverItem.description : 'アイテムを選択してください'}
+        </span>
       </div>
 
     </main>
