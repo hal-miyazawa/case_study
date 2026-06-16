@@ -47,6 +47,12 @@
   pointer-events: none;
 }
 
+.scene.is-night::before {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.46), rgba(0, 0, 0, 0.68)),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.7), transparent 48%);
+}
+
 .scene-transition {
   position: absolute;
   z-index: 5;

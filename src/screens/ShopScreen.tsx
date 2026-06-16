@@ -2,6 +2,7 @@ import { useState } from 'react'
 import './Shop.css'
 
 type ShopScreenProps = {
+  dayLabel: string
   onBuy: (itemId: string) => void
   onBack: () => void
 }
@@ -48,16 +49,15 @@ const items: Record<Category, ShopItem[]> = {
   ],
 }
 
-export default function ShopScreen({ onBuy, onBack }: ShopScreenProps) {
+export default function ShopScreen({ dayLabel, onBuy, onBack }: ShopScreenProps) {
   const [category, setCategory] = useState<Category>('safety')
   const [hoverItem, setHoverItem] = useState<ShopItem | null>(null)
-  const daysLeft = 3
 
   return (
     <main className="game-screen shop-bg">
 
       <header className="game-header">
-        <div className="game-header-days">災害まで{daysLeft}日</div>
+        <div className="game-header-days">{dayLabel}</div>
         <div className="game-header-title">ショップ</div>
         <button className="game-header-action" onClick={onBack}>部屋に戻る</button>
       </header>

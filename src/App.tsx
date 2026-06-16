@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import badEndBackground from './assets/backgrounds/BadEnd.png'
+import afterDisasterBackground from './assets/backgrounds/災害後画面.png'
 import backpackBackground from './assets/backgrounds/リュック画面.png'
 import bookWarningBackground from './assets/backgrounds/予告本画面.png'
 import normalRoomBackground from './assets/backgrounds/通常部屋画面.png'
@@ -7,7 +9,18 @@ import shopIcon from './assets/icons/ショップicon.png'
 import './App.css'
 import ShopScreen from './screens/ShopScreen'
 
-type Screen = 'book-warning' | 'room-intro' | 'preparation' | 'backpack' | 'shop'
+type Screen =
+  | 'book-warning'
+  | 'room-intro'
+  | 'preparation'
+  | 'backpack'
+  | 'shop'
+  | 'night'
+  | 'day-start'
+  | 'post-disaster'
+  | 'bad-end'
+
+type StoryDay = 1 | 2 | 3
 
 type Dialogue = {
   speaker: string
@@ -37,11 +50,6 @@ const bookWarningDialogues: Dialogue[] = [
   },
 ]
 
-const roomDialogue: Dialogue = {
-  speaker: 'ナレーション',
-  text: '地震が起こるとされる日まで、あと3日。何をするか選ぼう。',
-}
-
 const roomIntroDialogues: Dialogue[] = [
   {
     speaker: '主人公',
@@ -52,6 +60,93 @@ const roomIntroDialogues: Dialogue[] = [
     text: 'もし本当に地震が来るなら、今のうちにできることを考えないと。',
   },
 ]
+
+const getDayLabel = (day: StoryDay) =>
+  day === 1 ? '災害当日' : `災害まで${day}日`
+
+const getPreparationDialogue = (day: StoryDay): Dialogue => {
+  if (day === 1) {
+    return {
+      speaker: 'ナレーション',
+      text: '予告されていた当日になった。最後にできる対策を選ぼう。',
+    }
+  }
+
+  return {
+    speaker: 'ナレーション',
+    text: `地震が起こるとされる日まで、あと${day}日。何をするか選ぼう。`,
+  }
+}
+
+const nightDialoguesByDay: Record<2 | 3, Dialogue[]> = {
+  3: [
+    {
+      speaker: '主人公',
+      text: '災害まであと三日。今日はもう寝よう。',
+    },
+    {
+      speaker: 'ナレーション',
+      text: '不安を残したまま、部屋の明かりを消した。',
+    },
+  ],
+  2: [
+    {
+      speaker: '主人公',
+      text: '災害まであと二日。できることはまだあるはずだ。',
+    },
+    {
+      speaker: 'ナレーション',
+      text: '明日の自分に言い聞かせるように、眠りについた。',
+    },
+  ],
+}
+
+const dayStartDialoguesByDay: Record<1 | 2, Dialogue[]> = {
+  2: [
+    {
+      speaker: 'ナレーション',
+      text: '朝になった。地震が起こるとされる日まで、あと二日。',
+    },
+    {
+      speaker: '主人公',
+      text: '昨日より少し現実味が増してきた。今日も対策を進めよう。',
+    },
+  ],
+  1: [
+    {
+      speaker: 'ナレーション',
+      text: '予告されていた当日になった。',
+    },
+    {
+      speaker: '主人公',
+      text: '落ち着かない。でも、最後にできることをやるしかない。',
+    },
+  ],
+}
+
+const postDisasterDialogues: Dialogue[] = [
+  {
+    speaker: '主人公',
+    text: '……ついに、この時がやってきた。',
+  },
+  {
+    speaker: 'ナレーション',
+    text: '大きな揺れが部屋を襲い、本棚が倒れ、床には物とガラス片が散らばった。',
+  },
+  {
+    speaker: '主人公',
+    text: '何も準備していない。足元も見えないし、出口まで安全に進めそうにない。',
+  },
+  {
+    speaker: 'ナレーション',
+    text: '備えがないまま迎えた地震は、部屋から動き出すことすら難しい状況を生んでしまった。',
+  },
+]
+
+const badEndDialogue: Dialogue = {
+  speaker: 'ナレーション',
+  text: 'Bad End。足りなかった備えを思い出し、もう一度やり直そう。',
+}
 
 const backpackItems = [
   {
@@ -130,8 +225,12 @@ const backpackItems = [
 
 function App() {
   const [screen, setScreen] = useState<Screen>('book-warning')
+  const [currentDay, setCurrentDay] = useState<StoryDay>(3)
   const [dialogueIndex, setDialogueIndex] = useState(0)
   const [roomIntroIndex, setRoomIntroIndex] = useState(0)
+  const [nightDialogueIndex, setNightDialogueIndex] = useState(0)
+  const [dayStartDialogueIndex, setDayStartDialogueIndex] = useState(0)
+  const [postDisasterDialogueIndex, setPostDisasterDialogueIndex] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [transitionText, setTransitionText] = useState<string | null>(null)
   const [hoveredAction, setHoveredAction] = useState<string | null>(null)
@@ -153,10 +252,26 @@ function App() {
   const isPreparation = screen === 'preparation'
   const isBackpack = screen === 'backpack'
   const isShop = screen === 'shop'
+  const isNight = screen === 'night'
+  const isDayStart = screen === 'day-start'
+  const isPostDisaster = screen === 'post-disaster'
+  const isBadEnd = screen === 'bad-end'
+  const currentDayLabel = getDayLabel(currentDay)
+  const preparationDialogue = getPreparationDialogue(currentDay)
+  const canAdvanceDialogue =
+    isBookWarning || isRoomIntro || isNight || isDayStart || isPostDisaster
   const currentDialogue = isBookWarning
     ? bookWarningDialogues[dialogueIndex]
     : isRoomIntro
       ? roomIntroDialogues[roomIntroIndex]
+      : isNight
+        ? nightDialoguesByDay[currentDay as 2 | 3][nightDialogueIndex]
+        : isDayStart
+          ? dayStartDialoguesByDay[currentDay as 1 | 2][dayStartDialogueIndex]
+          : isPostDisaster
+            ? postDisasterDialogues[postDisasterDialogueIndex]
+            : isBadEnd
+              ? badEndDialogue
       : hoveredAction === 'shop'
         ? {
             speaker: 'ナレーション',
@@ -175,8 +290,19 @@ function App() {
             : hoveredAction === 'days-left'
               ? {
                   speaker: '主人公',
-                  text: 'あと三日で地震が起こるはず……何か対策しないと。',
+                  text:
+                    currentDay === 1
+                      ? '予告では今日、地震が起こるはず……最後まで気を抜けない。'
+                      : `あと${currentDay}日で地震が起こるはず……何か対策しないと。`,
                 }
+              : hoveredAction === 'finish-day'
+                ? {
+                    speaker: 'ナレーション',
+                    text:
+                      currentDay === 1
+                        ? '最後の対策を終えますか？'
+                        : '今日の対策を終えて休みますか？',
+                  }
               : isBackpack
                 ? selectedItem
                   ? {
@@ -192,11 +318,22 @@ function App() {
                         speaker: 'ナレーション',
                         text: '持っているものを確認して、非常用リュックに入れる準備をしよう。',
                       }
-                : roomDialogue
+                : preparationDialogue
   const isLastBookDialogue =
     isBookWarning && dialogueIndex === bookWarningDialogues.length - 1
   const isLastRoomIntroDialogue =
     isRoomIntro && roomIntroIndex === roomIntroDialogues.length - 1
+  const isLastNightDialogue =
+    isNight &&
+    nightDialogueIndex ===
+      nightDialoguesByDay[currentDay as 2 | 3].length - 1
+  const isLastDayStartDialogue =
+    isDayStart &&
+    dayStartDialogueIndex ===
+      dayStartDialoguesByDay[currentDay as 1 | 2].length - 1
+  const isLastPostDisasterDialogue =
+    isPostDisaster &&
+    postDisasterDialogueIndex === postDisasterDialogues.length - 1
 
   useEffect(() => {
     if (isLogOpen && logBodyRef.current) {
@@ -214,6 +351,46 @@ function App() {
 
       return [...current, dialogue]
     })
+  }
+
+  const finishTransition = () => {
+    window.setTimeout(() => {
+      setIsTransitioning(false)
+      setTransitionText(null)
+    }, 620)
+  }
+
+  const handleFinishPreparation = () => {
+    if (isTransitioning) {
+      return
+    }
+
+    setHoveredAction(null)
+
+    if (currentDay === 1) {
+      setTransitionText('-地震発生-')
+      setIsTransitioning(true)
+
+      window.setTimeout(() => {
+        setScreen('post-disaster')
+        setPostDisasterDialogueIndex(0)
+        addDialogueLog(postDisasterDialogues[0])
+      }, 140)
+
+      finishTransition()
+      return
+    }
+
+    setTransitionText('-夜-')
+    setIsTransitioning(true)
+
+    window.setTimeout(() => {
+      setScreen('night')
+      setNightDialogueIndex(0)
+      addDialogueLog(nightDialoguesByDay[currentDay as 2 | 3][0])
+    }, 140)
+
+    finishTransition()
   }
 
   const handleNextDialogue = () => {
@@ -252,7 +429,7 @@ function App() {
       window.setTimeout(() => {
         setScreen('preparation')
         setRoomIntroIndex(0)
-        addDialogueLog(roomDialogue)
+        addDialogueLog(getPreparationDialogue(currentDay))
       }, 140)
 
       window.setTimeout(() => {
@@ -268,14 +445,85 @@ function App() {
 
       setRoomIntroIndex(nextIndex)
       addDialogueLog(roomIntroDialogues[nextIndex])
+      return
+    }
+
+    if (isNight && isLastNightDialogue) {
+      const nextDay = currentDay === 3 ? 2 : 1
+
+      setTransitionText(nextDay === 1 ? '-災害当日-' : '-災害まであと二日-')
+      setIsTransitioning(true)
+
+      window.setTimeout(() => {
+        setCurrentDay(nextDay)
+        setScreen('day-start')
+        setNightDialogueIndex(0)
+        setDayStartDialogueIndex(0)
+        addDialogueLog(dayStartDialoguesByDay[nextDay][0])
+      }, 140)
+
+      finishTransition()
+      return
+    }
+
+    if (isNight) {
+      const nextIndex = nightDialogueIndex + 1
+
+      setNightDialogueIndex(nextIndex)
+      addDialogueLog(nightDialoguesByDay[currentDay as 2 | 3][nextIndex])
+      return
+    }
+
+    if (isDayStart && isLastDayStartDialogue) {
+      setTransitionText('-対策フェーズ-')
+      setIsTransitioning(true)
+
+      window.setTimeout(() => {
+        setScreen('preparation')
+        setDayStartDialogueIndex(0)
+        addDialogueLog(getPreparationDialogue(currentDay))
+      }, 140)
+
+      finishTransition()
+      return
+    }
+
+    if (isDayStart) {
+      const nextIndex = dayStartDialogueIndex + 1
+
+      setDayStartDialogueIndex(nextIndex)
+      addDialogueLog(dayStartDialoguesByDay[currentDay as 1 | 2][nextIndex])
+      return
+    }
+
+    if (isPostDisaster && isLastPostDisasterDialogue) {
+      setTransitionText('-Bad End-')
+      setIsTransitioning(true)
+
+      window.setTimeout(() => {
+        setScreen('bad-end')
+        setPostDisasterDialogueIndex(0)
+        addDialogueLog(badEndDialogue)
+      }, 140)
+
+      finishTransition()
+      return
+    }
+
+    if (isPostDisaster) {
+      const nextIndex = postDisasterDialogueIndex + 1
+
+      setPostDisasterDialogueIndex(nextIndex)
+      addDialogueLog(postDisasterDialogues[nextIndex])
     }
   }
 
   if (isShop) {
     return (
       <ShopScreen
+        dayLabel={currentDayLabel}
         onBack={() => {
-          addDialogueLog(roomDialogue)
+          addDialogueLog(preparationDialogue)
           setScreen('preparation')
         }}
         onBuy={(itemId) => {
@@ -291,14 +539,18 @@ function App() {
   return (
     <main className="game-screen">
       <section
-        className="scene"
+        className={`scene ${isNight ? 'is-night' : ''}`}
         style={{
           backgroundImage: `url(${
             isBookWarning
               ? bookWarningBackground
               : isBackpack
                 ? backpackBackground
-                : normalRoomBackground
+                : isPostDisaster
+                  ? afterDisasterBackground
+                  : isBadEnd
+                    ? badEndBackground
+                    : normalRoomBackground
           })`,
         }}
         aria-label={
@@ -306,6 +558,12 @@ function App() {
             ? '予告本を見る場面'
             : isBackpack
               ? 'リュックを整理する場面'
+              : isNight
+                ? '夜の場面'
+                : isPostDisaster
+                  ? '災害後の部屋'
+                  : isBadEnd
+                    ? 'バッドエンド'
               : '主人公の部屋'
         }
       >
@@ -348,7 +606,7 @@ function App() {
                 tabIndex={0}
                 aria-label="地震発生までの残り日数"
               >
-                災害まで3日
+                {currentDayLabel}
               </div>
               <div
                 className="game-header-title"
@@ -361,7 +619,17 @@ function App() {
               >
                 対策フェーズ中
               </div>
-              <div className="game-header-action" aria-hidden="true" />
+              <button
+                type="button"
+                className="game-header-action"
+                onMouseEnter={() => setHoveredAction('finish-day')}
+                onMouseLeave={() => setHoveredAction(null)}
+                onFocus={() => setHoveredAction('finish-day')}
+                onBlur={() => setHoveredAction(null)}
+                onClick={handleFinishPreparation}
+              >
+                対策を終える
+              </button>
             </header>
             <div className="action-icons" aria-label="対策行動">
               <button
@@ -409,7 +677,7 @@ function App() {
         {isBackpack && !isUiHidden && (
           <>
             <header className="game-header">
-              <div className="game-header-days">災害まで3日</div>
+              <div className="game-header-days">{currentDayLabel}</div>
               <div className="game-header-title">リュック</div>
               <button
                 type="button"
@@ -417,7 +685,7 @@ function App() {
                 onClick={() => {
                   setHoveredItem(null)
                   setSelectedItem(null)
-                  addDialogueLog(roomDialogue)
+                  addDialogueLog(preparationDialogue)
                   setScreen('preparation')
                 }}
               >
@@ -492,12 +760,12 @@ function App() {
           type="button"
           className={`message-box ${isUiHidden ? 'is-hidden' : ''}`}
           onClick={handleNextDialogue}
-          aria-label={isBookWarning ? '次のセリフへ進む' : '自由行動を選ぶ'}
+          aria-label={canAdvanceDialogue ? '次のセリフへ進む' : '自由行動を選ぶ'}
         >
           <span className="nameplate">{currentDialogue.speaker}</span>
           <span className="dialogue-text">{currentDialogue.text}</span>
           <span className="next-mark">
-            {isBookWarning || isRoomIntro ? '▼' : ''}
+            {canAdvanceDialogue ? '▼' : ''}
           </span>
         </button>
       </section>
