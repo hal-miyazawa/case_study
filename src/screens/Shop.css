@@ -14,7 +14,6 @@
   width: 100vw;
   height: 100svh;
   overflow: hidden;
-  background-image: url('/img/background.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;

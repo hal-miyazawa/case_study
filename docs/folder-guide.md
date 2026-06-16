@@ -171,6 +171,7 @@ import shopBackground from './assets/backgrounds/ショップ画面.png'
 
 - `ショップicon.png`
 - `リュックicon.png`
+- `item.png`
 
 アイコンを追加したら、`src/App.tsx` で import してボタン画像として使います。
 
