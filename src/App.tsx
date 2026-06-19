@@ -5,6 +5,7 @@ import backpackBackground from './assets/backgrounds/リュック画面.png'
 import bookWarningBackground from './assets/backgrounds/予告本画面.png'
 import normalRoomBackground from './assets/backgrounds/通常部屋画面.png'
 import nightRoomBackground from './assets/backgrounds/通常部屋画面夜.png'
+import phoneScreenBackground from './assets/backgrounds/スマホ画面.png'
 import backpackIcon from './assets/icons/リュックicon.png'
 import shopIcon from './assets/icons/ショップicon.png'
 import './App.css'
@@ -256,6 +257,7 @@ function App() {
   )
   const [isUiHidden, setIsUiHidden] = useState(false)
   const [isLogOpen, setIsLogOpen] = useState(false)
+  const [isPhoneOpen, setIsPhoneOpen] = useState(false)
   const [isQuitMessageVisible, setIsQuitMessageVisible] = useState(false)
   const [dialogueLog, setDialogueLog] = useState<Dialogue[]>([
     bookWarningDialogues[0],
@@ -313,6 +315,11 @@ function App() {
               speaker: 'ナレーション',
               text: 'リュックを整理しますか？',
             }
+          : hoveredAction === 'phone'
+            ? {
+                speaker: 'ナレーション',
+                text: 'スマホを確認しますか？',
+              }
           : hoveredAction === 'phase'
             ? {
                 speaker: 'ナレーション',
@@ -337,8 +344,8 @@ function App() {
               : isBackpack
                 ? selectedItem
                   ? {
-                      speaker: 'ナレーション',
-                      text: `${selectedItem.name}を使いますか？`,
+                      speaker: selectedItem.name,
+                      text: selectedItem.description,
                     }
                   : hoveredItem
                     ? {
@@ -381,6 +388,7 @@ function App() {
     setSelectedItem(null)
     setIsUiHidden(false)
     setIsLogOpen(false)
+    setIsPhoneOpen(false)
     setIsQuitMessageVisible(false)
     setDialogueLog([bookWarningDialogues[0]])
   }
@@ -451,6 +459,7 @@ function App() {
     setSelectedItem(null)
     setIsUiHidden(false)
     setIsLogOpen(false)
+    setIsPhoneOpen(false)
     addDialogueLog(getPreparationDialogue(0))
   }
 
@@ -777,6 +786,14 @@ function App() {
               <button
                 type="button"
                 className="action-icon-button action-icon-phone"
+                onMouseEnter={() => setHoveredAction('phone')}
+                onMouseLeave={() => setHoveredAction(null)}
+                onFocus={() => setHoveredAction('phone')}
+                onBlur={() => setHoveredAction(null)}
+                onClick={() => {
+                  setHoveredAction(null)
+                  setIsPhoneOpen(true)
+                }}
                 aria-label="スマホ"
               >
                 <span className="phone-icon-shape" aria-hidden="true" />
@@ -805,6 +822,26 @@ function App() {
               </button>
             </div>
           </>
+        )}
+
+        {isPreparation && isPhoneOpen && !isUiHidden && (
+          <div
+            className="phone-overlay"
+            aria-label="スマホ画面"
+            onClick={() => setIsPhoneOpen(false)}
+          >
+            <div
+              className="phone-screen-shell"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <img src={phoneScreenBackground} alt="" />
+              <div className="phone-app-grid" aria-label="スマホアプリ">
+                <button type="button">連絡</button>
+                <button type="button">ニュース</button>
+                <button type="button">避難場所</button>
+              </div>
+            </div>
+          </div>
         )}
 
         {isBackpack && !isUiHidden && (
@@ -838,10 +875,6 @@ function App() {
                       onBlur={() => setHoveredItem(null)}
                       onClick={() => {
                         setSelectedItem(item)
-                        addDialogueLog({
-                          speaker: 'ナレーション',
-                          text: `${item.name}を使いますか？`,
-                        })
                       }}
                     >
                       <span className="item-icon-slot" aria-hidden="true" />
@@ -855,13 +888,18 @@ function App() {
         )}
 
         {isBackpack && selectedItem && !isUiHidden && (
-          <div className="confirm-actions" aria-label="アイテム使用確認">
-            <button type="button" onClick={() => setSelectedItem(null)}>
-              はい
-            </button>
-            <button type="button" onClick={() => setSelectedItem(null)}>
-              いいえ
-            </button>
+          <div className="confirm-modal-overlay" role="dialog" aria-modal="true">
+            <section className="confirm-modal" aria-label="アイテム使用確認">
+              <p>{selectedItem.name}を使いますか？</p>
+              <div className="confirm-actions">
+                <button type="button" onClick={() => setSelectedItem(null)}>
+                  はい
+                </button>
+                <button type="button" onClick={() => setSelectedItem(null)}>
+                  いいえ
+                </button>
+              </div>
+            </section>
           </div>
         )}
 
