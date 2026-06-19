@@ -384,7 +384,8 @@
 
 .phone-screen-shell {
   position: relative;
-  height: min(78vh, 760px);
+  margin-top: 30vh;
+  width: 60vh;
   aspect-ratio: 600 / 1200;
   filter: drop-shadow(0 24px 44px rgba(0, 0, 0, 0.42));
 }
