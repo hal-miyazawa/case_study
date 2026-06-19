@@ -4,6 +4,7 @@ import afterDisasterBackground from './assets/backgrounds/災害後画面.png'
 import backpackBackground from './assets/backgrounds/リュック画面.png'
 import bookWarningBackground from './assets/backgrounds/予告本画面.png'
 import normalRoomBackground from './assets/backgrounds/通常部屋画面.png'
+import nightRoomBackground from './assets/backgrounds/通常部屋画面夜.png'
 import backpackIcon from './assets/icons/リュックicon.png'
 import shopIcon from './assets/icons/ショップicon.png'
 import './App.css'
@@ -19,6 +20,9 @@ type Screen =
   | 'day-start'
   | 'post-disaster'
   | 'bad-end'
+  | 'result-review'
+  | 'real-life-message'
+  | 'ending-actions'
 
 type StoryDay = 0 | 1 | 2
 
@@ -148,6 +152,16 @@ const badEndDialogue: Dialogue = {
   text: 'Bad End。足りなかった備えを思い出し、もう一度やり直そう。',
 }
 
+const resultReviewDialogue: Dialogue = {
+  speaker: 'ナレーション',
+  text: '今回の結果を確認しました。次は、この物語を現実の備えに置き換えて考えてみましょう。',
+}
+
+const realLifeDialogue: Dialogue = {
+  speaker: 'ナレーション',
+  text: 'この物語では、主人公は二日後の地震を知っていました。でも現実では、いつ起こるかは分かりません。',
+}
+
 const backpackItems = [
   {
     name: '飲料水',
@@ -242,6 +256,7 @@ function App() {
   )
   const [isUiHidden, setIsUiHidden] = useState(false)
   const [isLogOpen, setIsLogOpen] = useState(false)
+  const [isQuitMessageVisible, setIsQuitMessageVisible] = useState(false)
   const [dialogueLog, setDialogueLog] = useState<Dialogue[]>([
     bookWarningDialogues[0],
   ])
@@ -256,10 +271,22 @@ function App() {
   const isDayStart = screen === 'day-start'
   const isPostDisaster = screen === 'post-disaster'
   const isBadEnd = screen === 'bad-end'
+  const isResultReview = screen === 'result-review'
+  const isRealLifeMessage = screen === 'real-life-message'
+  const isEndingActions = screen === 'ending-actions'
+  const isAfterBadEnd = isResultReview || isRealLifeMessage || isEndingActions
+  const shouldHideGlobalControls = isBadEnd || isAfterBadEnd
   const currentDayLabel = getDayLabel(currentDay)
   const preparationDialogue = getPreparationDialogue(currentDay)
   const canAdvanceDialogue =
-    isBookWarning || isRoomIntro || isNight || isDayStart || isPostDisaster
+    isBookWarning ||
+    isRoomIntro ||
+    isNight ||
+    isDayStart ||
+    isPostDisaster ||
+    isBadEnd ||
+    isResultReview ||
+    isRealLifeMessage
   const currentDialogue = isBookWarning
     ? bookWarningDialogues[dialogueIndex]
     : isRoomIntro
@@ -272,6 +299,10 @@ function App() {
             ? postDisasterDialogues[postDisasterDialogueIndex]
             : isBadEnd
               ? badEndDialogue
+              : isResultReview
+                ? resultReviewDialogue
+                : isRealLifeMessage
+                  ? realLifeDialogue
       : hoveredAction === 'shop'
         ? {
             speaker: 'ナレーション',
@@ -335,6 +366,25 @@ function App() {
     isPostDisaster &&
     postDisasterDialogueIndex === postDisasterDialogues.length - 1
 
+  const resetGame = () => {
+    setScreen('book-warning')
+    setCurrentDay(2)
+    setDialogueIndex(0)
+    setRoomIntroIndex(0)
+    setNightDialogueIndex(0)
+    setDayStartDialogueIndex(0)
+    setPostDisasterDialogueIndex(0)
+    setIsTransitioning(false)
+    setTransitionText(null)
+    setHoveredAction(null)
+    setHoveredItem(null)
+    setSelectedItem(null)
+    setIsUiHidden(false)
+    setIsLogOpen(false)
+    setIsQuitMessageVisible(false)
+    setDialogueLog([bookWarningDialogues[0]])
+  }
+
   useEffect(() => {
     if (isLogOpen && logBodyRef.current) {
       logBodyRef.current.scrollTop = logBodyRef.current.scrollHeight
@@ -391,6 +441,17 @@ function App() {
     }, 140)
 
     finishTransition()
+  }
+
+  const jumpToFinalPreparation = () => {
+    setCurrentDay(0)
+    setScreen('preparation')
+    setHoveredAction(null)
+    setHoveredItem(null)
+    setSelectedItem(null)
+    setIsUiHidden(false)
+    setIsLogOpen(false)
+    addDialogueLog(getPreparationDialogue(0))
   }
 
   const handleNextDialogue = () => {
@@ -501,6 +562,7 @@ function App() {
       setIsTransitioning(true)
 
       window.setTimeout(() => {
+        setIsLogOpen(false)
         setScreen('bad-end')
         setPostDisasterDialogueIndex(0)
         addDialogueLog(badEndDialogue)
@@ -515,6 +577,46 @@ function App() {
 
       setPostDisasterDialogueIndex(nextIndex)
       addDialogueLog(postDisasterDialogues[nextIndex])
+      return
+    }
+
+    if (isBadEnd) {
+      setTransitionText('-今回の振り返り-')
+      setIsTransitioning(true)
+
+      window.setTimeout(() => {
+        setIsUiHidden(false)
+        setIsLogOpen(false)
+        setScreen('result-review')
+        addDialogueLog(resultReviewDialogue)
+      }, 140)
+
+      finishTransition()
+      return
+    }
+
+    if (isResultReview) {
+      setTransitionText('-現実のあなたへ-')
+      setIsTransitioning(true)
+
+      window.setTimeout(() => {
+        setScreen('real-life-message')
+        addDialogueLog(realLifeDialogue)
+      }, 140)
+
+      finishTransition()
+      return
+    }
+
+    if (isRealLifeMessage) {
+      setTransitionText('-これからどうする？-')
+      setIsTransitioning(true)
+
+      window.setTimeout(() => {
+        setScreen('ending-actions')
+      }, 140)
+
+      finishTransition()
     }
   }
 
@@ -539,7 +641,9 @@ function App() {
   return (
     <main className="game-screen">
       <section
-        className={`scene ${isNight ? 'is-night' : ''}`}
+        className={`scene ${isNight ? 'is-night' : ''} ${
+          isAfterBadEnd ? 'is-ending-panel' : ''
+        }`}
         style={{
           backgroundImage: `url(${
             isBookWarning
@@ -550,6 +654,8 @@ function App() {
                   ? afterDisasterBackground
                   : isBadEnd
                     ? badEndBackground
+                    : isNight
+                      ? nightRoomBackground
                     : normalRoomBackground
           })`,
         }}
@@ -564,6 +670,12 @@ function App() {
                   ? '災害後の部屋'
                   : isBadEnd
                     ? 'バッドエンド'
+                    : isResultReview
+                      ? '今回の振り返り'
+                      : isRealLifeMessage
+                        ? '現実への呼びかけ'
+                        : isEndingActions
+                          ? '終了選択'
               : '主人公の部屋'
         }
       >
@@ -576,15 +688,17 @@ function App() {
           )}
         </div>
 
-        <button
-          type="button"
-          className="ui-toggle"
-          onClick={() => setIsUiHidden((current) => !current)}
-        >
-          {isUiHidden ? 'UI表示' : 'UI非表示'}
-        </button>
+        {!shouldHideGlobalControls && (
+          <button
+            type="button"
+            className="ui-toggle"
+            onClick={() => setIsUiHidden((current) => !current)}
+          >
+            {isUiHidden ? 'UI表示' : 'UI非表示'}
+          </button>
+        )}
 
-        {!isUiHidden && (
+        {!isUiHidden && !shouldHideGlobalControls && (
           <button
             type="button"
             className={`log-toggle ${isBackpack ? 'is-backpack' : ''}`}
@@ -619,17 +733,26 @@ function App() {
               >
                 対策フェーズ中
               </div>
-              <button
-                type="button"
-                className="game-header-action"
-                onMouseEnter={() => setHoveredAction('finish-day')}
-                onMouseLeave={() => setHoveredAction(null)}
-                onFocus={() => setHoveredAction('finish-day')}
-                onBlur={() => setHoveredAction(null)}
-                onClick={handleFinishPreparation}
-              >
-                対策を終える
-              </button>
+              <div className="game-header-actions">
+                <button
+                  type="button"
+                  className="debug-skip-button"
+                  onClick={jumpToFinalPreparation}
+                >
+                  最終日へ
+                </button>
+                <button
+                  type="button"
+                  className="game-header-action"
+                  onMouseEnter={() => setHoveredAction('finish-day')}
+                  onMouseLeave={() => setHoveredAction(null)}
+                  onFocus={() => setHoveredAction('finish-day')}
+                  onBlur={() => setHoveredAction(null)}
+                  onClick={handleFinishPreparation}
+                >
+                  対策を終える
+                </button>
+              </div>
             </header>
             <div className="action-icons" aria-label="対策行動">
               <button
@@ -742,7 +865,7 @@ function App() {
           </div>
         )}
 
-        {isLogOpen && (
+        {isLogOpen && !shouldHideGlobalControls && (
           <div className="text-log-overlay" role="dialog" aria-modal="true">
             <section className="text-log-panel" aria-label="テキストログ">
               <div className="text-log-header">
@@ -766,18 +889,84 @@ function App() {
           </div>
         )}
 
-        <button
-          type="button"
-          className={`message-box ${isUiHidden ? 'is-hidden' : ''}`}
-          onClick={handleNextDialogue}
-          aria-label={canAdvanceDialogue ? '次のセリフへ進む' : '自由行動を選ぶ'}
-        >
-          <span className="nameplate">{currentDialogue.speaker}</span>
-          <span className="dialogue-text">{currentDialogue.text}</span>
-          <span className="next-mark">
-            {canAdvanceDialogue ? '▼' : ''}
-          </span>
-        </button>
+        {isResultReview && (
+          <section className="result-review-panel" aria-label="今回の振り返り">
+            <h2>今回の振り返り</h2>
+            <div className="review-columns">
+              <section>
+                <h3>足りなかった備え</h3>
+                <ul>
+                  <li>家具が固定されておらず、通路がふさがれた</li>
+                  <li>暗い中で足元を確認するライトがなかった</li>
+                  <li>ガラスや散乱物の上を歩く準備がなかった</li>
+                </ul>
+              </section>
+              <section>
+                <h3>よかった点</h3>
+                <ul>
+                  <li>地震の可能性を知り、対策を考え始めた</li>
+                  <li>部屋や持ち物に目を向けるきっかけができた</li>
+                </ul>
+              </section>
+            </div>
+          </section>
+        )}
+
+        {isRealLifeMessage && (
+          <section className="real-life-panel" aria-label="現実で確認すること">
+            <h2>現実のあなたへ</h2>
+            <p>
+              予告がなくても、今日できる確認があります。まずは自分の部屋を一度だけ見回してみてください。
+            </p>
+            <ul>
+              <li>寝る場所の近くに、倒れそうな家具はないか</li>
+              <li>玄関までの通路が、物や家具でふさがれないか</li>
+              <li>暗い中でも使えるライトや靴が手に届く場所にあるか</li>
+            </ul>
+          </section>
+        )}
+
+        {isEndingActions && (
+          <section className="ending-actions-panel" aria-label="終了選択">
+            <h2>これからどうする？</h2>
+            <p>
+              もう一度試すか、ここで終えるかを選んでください。
+            </p>
+            <div className="ending-action-buttons">
+              <button type="button" onClick={resetGame}>
+                もう一度プレイ
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsQuitMessageVisible(true)}
+              >
+                ゲームをやめる
+              </button>
+            </div>
+            {isQuitMessageVisible && (
+              <p className="ending-quit-message">
+                プレイしてくれてありがとうございました。画面を閉じる前に、身の回りを一度見直してみてください。
+              </p>
+            )}
+          </section>
+        )}
+
+        {!isEndingActions && (
+          <button
+            type="button"
+            className={`message-box ${
+              isUiHidden && !shouldHideGlobalControls ? 'is-hidden' : ''
+            }`}
+            onClick={handleNextDialogue}
+            aria-label={canAdvanceDialogue ? '次のセリフへ進む' : '自由行動を選ぶ'}
+          >
+            <span className="nameplate">{currentDialogue.speaker}</span>
+            <span className="dialogue-text">{currentDialogue.text}</span>
+            <span className="next-mark">
+              {canAdvanceDialogue ? '▼' : ''}
+            </span>
+          </button>
+        )}
       </section>
     </main>
   )

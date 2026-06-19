@@ -54,6 +54,12 @@ const items: Record<Category, ShopItem[]> = {
 export default function ShopScreen({ dayLabel, onBuy, onBack }: ShopScreenProps) {
   const [category, setCategory] = useState<Category>('safety')
   const [hoverItem, setHoverItem] = useState<ShopItem | null>(null)
+  const [selectedItem, setSelectedItem] = useState<ShopItem | null>(null)
+  const messageText = selectedItem
+    ? `${selectedItem.name}を購入しますか？`
+    : hoverItem
+      ? hoverItem.description
+      : 'アイテムを選択してください'
 
   return (
     <main
@@ -86,13 +92,13 @@ export default function ShopScreen({ dayLabel, onBuy, onBack }: ShopScreenProps)
             <li key={item.id}>
               <button
                 type="button"
-                className="shop-list-item"
-                onMouseEnter={() => setHoverItem(item)}
-                onMouseLeave={() => setHoverItem(null)}
-                onFocus={() => setHoverItem(item)}
-                onBlur={() => setHoverItem(null)}
-                onClick={() => onBuy(item.name)}
-              >
+              className="shop-list-item"
+              onMouseEnter={() => setHoverItem(item)}
+              onMouseLeave={() => setHoverItem(null)}
+              onFocus={() => setHoverItem(item)}
+              onBlur={() => setHoverItem(null)}
+              onClick={() => setSelectedItem(item)}
+            >
                 <span className="shop-item-icon-slot">
                   <img src={item.image} className="list-icon" alt="" />
                 </span>
@@ -103,11 +109,26 @@ export default function ShopScreen({ dayLabel, onBuy, onBack }: ShopScreenProps)
         </ul>
       </section>
 
+      {selectedItem && (
+        <div className="confirm-actions" aria-label="商品購入確認">
+          <button
+            type="button"
+            onClick={() => {
+              onBuy(selectedItem.name)
+              setSelectedItem(null)
+            }}
+          >
+            はい
+          </button>
+          <button type="button" onClick={() => setSelectedItem(null)}>
+            いいえ
+          </button>
+        </div>
+      )}
+
       <div className="message-box">
         <span className="nameplate">ナレーション</span>
-        <span className="dialogue-text">
-          {hoverItem ? hoverItem.description : 'アイテムを選択してください'}
-        </span>
+        <span className="dialogue-text">{messageText}</span>
       </div>
 
     </main>
