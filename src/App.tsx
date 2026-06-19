@@ -32,6 +32,13 @@ type Dialogue = {
   text: string
 }
 
+const roomMeasureActions = [
+  '本棚の上のものをおろす',
+  'テレビを倒す',
+  '薬をおろす',
+  '本をおろす',
+]
+
 const bookWarningDialogues: Dialogue[] = [
   {
     speaker: '主人公',
@@ -258,6 +265,8 @@ function App() {
   const [isUiHidden, setIsUiHidden] = useState(false)
   const [isLogOpen, setIsLogOpen] = useState(false)
   const [isPhoneOpen, setIsPhoneOpen] = useState(false)
+  const [isMeasuresOpen, setIsMeasuresOpen] = useState(false)
+  const [selectedMeasure, setSelectedMeasure] = useState<string | null>(null)
   const [isQuitMessageVisible, setIsQuitMessageVisible] = useState(false)
   const [dialogueLog, setDialogueLog] = useState<Dialogue[]>([
     bookWarningDialogues[0],
@@ -320,6 +329,11 @@ function App() {
                 speaker: 'ナレーション',
                 text: 'スマホを確認しますか？',
               }
+            : hoveredAction === 'furniture'
+              ? {
+                  speaker: 'ナレーション',
+                  text: '部屋の対策を確認しますか？',
+                }
           : hoveredAction === 'phase'
             ? {
                 speaker: 'ナレーション',
@@ -389,6 +403,8 @@ function App() {
     setIsUiHidden(false)
     setIsLogOpen(false)
     setIsPhoneOpen(false)
+    setIsMeasuresOpen(false)
+    setSelectedMeasure(null)
     setIsQuitMessageVisible(false)
     setDialogueLog([bookWarningDialogues[0]])
   }
@@ -424,6 +440,9 @@ function App() {
     }
 
     setHoveredAction(null)
+    setIsPhoneOpen(false)
+    setIsMeasuresOpen(false)
+    setSelectedMeasure(null)
 
     if (currentDay === 0) {
       setTransitionText('-地震発生-')
@@ -460,6 +479,8 @@ function App() {
     setIsUiHidden(false)
     setIsLogOpen(false)
     setIsPhoneOpen(false)
+    setIsMeasuresOpen(false)
+    setSelectedMeasure(null)
     addDialogueLog(getPreparationDialogue(0))
   }
 
@@ -764,6 +785,27 @@ function App() {
               </div>
             </header>
             <div className="action-icons" aria-label="対策行動">
+              {currentDay === 0 && (
+                <button
+                  type="button"
+                  className="action-icon-button action-icon-furniture"
+                  onMouseEnter={() => setHoveredAction('furniture')}
+                  onMouseLeave={() => setHoveredAction(null)}
+                  onFocus={() => setHoveredAction('furniture')}
+                  onBlur={() => setHoveredAction(null)}
+                  onClick={() => {
+                    setHoveredAction(null)
+                    setIsPhoneOpen(false)
+                    setIsMeasuresOpen(true)
+                  }}
+                  aria-label="対策"
+                >
+                  <span className="furniture-icon-shape" aria-hidden="true" />
+                  <span className="furniture-icon-label" aria-hidden="true">
+                    対策
+                  </span>
+                </button>
+              )}
               <button
                 type="button"
                 className="action-icon-button action-icon-shop"
@@ -844,6 +886,37 @@ function App() {
           </div>
         )}
 
+        {isPreparation && isMeasuresOpen && !isUiHidden && (
+          <div className="measure-modal-overlay" role="dialog" aria-modal="true">
+            <section className="measure-modal" aria-label="部屋の対策">
+              <div className="measure-modal-header">
+                <h2>部屋の対策</h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMeasuresOpen(false)
+                    setSelectedMeasure(null)
+                  }}
+                >
+                  戻る
+                </button>
+              </div>
+              <p>地震が来る前に、危ない場所を確認しよう。</p>
+              <div className="measure-action-list">
+                {roomMeasureActions.map((action) => (
+                  <button
+                    type="button"
+                    key={action}
+                    onClick={() => setSelectedMeasure(action)}
+                  >
+                    {action}
+                  </button>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
+
         {isBackpack && !isUiHidden && (
           <>
             <header className="game-header">
@@ -896,6 +969,22 @@ function App() {
                   はい
                 </button>
                 <button type="button" onClick={() => setSelectedItem(null)}>
+                  いいえ
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {selectedMeasure && (
+          <div className="confirm-modal-overlay" role="dialog" aria-modal="true">
+            <section className="confirm-modal" aria-label="対策確認">
+              <p>{selectedMeasure}を実行しますか？</p>
+              <div className="confirm-actions">
+                <button type="button" onClick={() => setSelectedMeasure(null)}>
+                  はい
+                </button>
+                <button type="button" onClick={() => setSelectedMeasure(null)}>
                   いいえ
                 </button>
               </div>
