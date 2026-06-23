@@ -55,18 +55,25 @@ export default function ShopScreen({ dayLabel, onBuy, onBack }: ShopScreenProps)
   const [category, setCategory] = useState<Category>('safety')
   const [hoverItem, setHoverItem] = useState<ShopItem | null>(null)
   const [selectedItem, setSelectedItem] = useState<ShopItem | null>(null)
+  const [purchasedIds, setPurchasedIds] = useState<Set<string>>(new Set())
+
   const messageText = selectedItem
     ? selectedItem.description
     : hoverItem
       ? hoverItem.description
-      : 'アイテムを選択してください'
+      : 'アイテムを選択してください。'
+
+  const handleBuy = (item: ShopItem) => {
+    onBuy(item.name)
+    setPurchasedIds((prev) => new Set(prev).add(item.id))
+    setSelectedItem(null)
+  }
 
   return (
     <main
       className="game-screen shop-bg"
       style={{ backgroundImage: `url(${shopBackground})` }}
     >
-
       <header className="game-header">
         <div className="game-header-days">{dayLabel}</div>
         <div className="game-header-title">ショップ</div>
@@ -88,24 +95,32 @@ export default function ShopScreen({ dayLabel, onBuy, onBack }: ShopScreenProps)
         </nav>
 
         <ul className="shop-item-grid">
-          {items[category].map((item) => (
-            <li key={item.id}>
-              <button
-                type="button"
-                className="shop-list-item"
-                onMouseEnter={() => setHoverItem(item)}
-                onMouseLeave={() => setHoverItem(null)}
-                onFocus={() => setHoverItem(item)}
-                onBlur={() => setHoverItem(null)}
-                onClick={() => setSelectedItem(item)}
-              >
-                <span className="shop-item-icon-slot">
-                  <img src={item.image} className="list-icon" alt="" />
-                </span>
-                <span className="list-name">{item.name}</span>
-              </button>
-            </li>
-          ))}
+          {items[category].map((item) => {
+            const isPurchased = purchasedIds.has(item.id)
+            return (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  className={`shop-list-item ${isPurchased ? 'is-purchased' : ''}`}
+                  onMouseEnter={() => setHoverItem(item)}
+                  onMouseLeave={() => setHoverItem(null)}
+                  onFocus={() => setHoverItem(item)}
+                  onBlur={() => setHoverItem(null)}
+                  onClick={() => !isPurchased && setSelectedItem(item)}
+                  aria-pressed={isPurchased}
+                  aria-label={isPurchased ? `${item.name}（購入済み）` : item.name}
+                >
+                  <span className="shop-item-icon-slot">
+                    <img src={item.image} className="list-icon" alt="" />
+                  </span>
+                  <span className="list-name">{item.name}</span>
+                  {isPurchased && (
+                    <span className="purchased-badge" aria-hidden="true">✓</span>
+                  )}
+                </button>
+              </li>
+            )
+          })}
         </ul>
       </section>
 
@@ -114,13 +129,7 @@ export default function ShopScreen({ dayLabel, onBuy, onBack }: ShopScreenProps)
           <section className="confirm-modal" aria-label="商品購入確認">
             <p>{selectedItem.name}を購入しますか？</p>
             <div className="confirm-actions">
-              <button
-                type="button"
-                onClick={() => {
-                  onBuy(selectedItem.name)
-                  setSelectedItem(null)
-                }}
-              >
+              <button type="button" onClick={() => handleBuy(selectedItem)}>
                 はい
               </button>
               <button type="button" onClick={() => setSelectedItem(null)}>
@@ -135,7 +144,6 @@ export default function ShopScreen({ dayLabel, onBuy, onBack }: ShopScreenProps)
         <span className="nameplate">ナレーション</span>
         <span className="dialogue-text">{messageText}</span>
       </div>
-
     </main>
   )
 }
