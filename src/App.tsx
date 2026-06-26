@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import badEndBackground from './assets/backgrounds/BadEnd.png'
 import afterDisasterBackground from './assets/backgrounds/災害後画面.png'
 import backpackBackground from './assets/backgrounds/リュック画面.png'
@@ -9,7 +9,7 @@ import phoneScreenBackground from './assets/backgrounds/スマホ画面.png'
 import backpackIcon from './assets/icons/リュックicon.png'
 import shopIcon from './assets/icons/ショップicon.png'
 import './App.css'
-import ShopScreen from './screens/ShopScreen'
+import ShopScreen, { type ItemId } from './screens/ShopScreen'
 
 type Screen =
   | 'book-warning'
@@ -30,6 +30,29 @@ type StoryDay = 0 | 1 | 2
 type Dialogue = {
   speaker: string
   text: string
+}
+
+// 商品ごとの購入数とリュック収納数を管理する型。
+// 0なら未購入/未収納、1以上なら購入済み/収納済みとして扱う。
+type ItemFlags = {
+  purchased: number
+  packed: number
+}
+
+// リュック画面で表示するアイテム1件分の型。
+// idはShopScreen.tsxの商品IDと必ず一致させる。
+type BackpackItem = {
+  id: ItemId
+  name: string
+  description: string
+}
+
+// アイテム以外のシナリオ進行に関わるflag。
+// 画面を閉じてもApp側で状態を保持する。
+type StoryFlags = {
+  contactedFamily: boolean
+  checkedNews: boolean
+  checkedShelter: boolean
 }
 
 const roomMeasureActions = [
@@ -170,80 +193,145 @@ const realLifeDialogue: Dialogue = {
   text: 'この物語では、主人公は二日後の地震を知っていました。でも現実では、いつ起こるかは分かりません。',
 }
 
-const backpackItems = [
+const backpackItems: BackpackItem[] = [
   {
+    id: 'water',
     name: '飲料水',
     description: '地震後に水分を確保するための大切な備え。',
   },
   {
+    id: 'emergency-food',
     name: '非常食セット',
     description: '避難後や停電時でも食べられる食料。',
   },
   {
+    id: 'flashlight',
     name: '懐中電灯',
     description: '停電した部屋や夜の避難で足元を照らせる。',
   },
   {
+    id: 'power-bank',
     name: 'モバイルバッテリー',
     description: 'スマホの充電を保ち、連絡や情報確認を続けられる。',
   },
   {
+    id: 'first-aid-kit',
     name: '救急セット',
     description: '軽いけがをしたときに応急処置ができる。',
   },
   {
+    id: 'furniture-fasteners',
     name: '家具固定器具',
     description: '棚や家具を固定して、揺れで倒れる危険を減らせる。',
   },
   {
+    id: 'window-film',
     name: '窓ガラス飛散防止フィルム',
     description: '割れたガラスが飛び散るのを防ぎ、けがをしにくくする。',
   },
   {
+    id: 'radio',
     name: '携帯ラジオ',
     description: '停電や通信障害のときでも避難情報を確認できる。',
   },
   {
+    id: 'gloves-slippers',
     name: '軍手・厚底スリッパ',
     description: '割れたガラスや散乱物の上を歩くときに足元を守れる。',
   },
   {
+    id: 'canned-food',
     name: '缶詰',
     description: '火や水が使えない状況でも食べられる保存食。',
   },
   {
+    id: 'nutrition-supplements',
     name: '栄養補助食品',
     description: '短時間で食べられて、避難中の体力を保ちやすい。',
   },
   {
+    id: 'retort-rice',
     name: 'レトルトご飯・保存食',
     description: '自宅に残る場合や避難生活で役立つ備蓄食。',
   },
   {
+    id: 'portable-toilet',
     name: '簡易トイレ',
     description: '断水したときや避難所でトイレに困りにくくなる。',
   },
   {
+    id: 'medication',
     name: '常備薬',
     description: '体調不良や持病がある場合に欠かせない備え。',
   },
   {
+    id: 'disinfectant',
     name: '消毒液・ウェットシート',
     description: '手や傷口を清潔にして、衛生状態を保ちやすくする。',
   },
   {
+    id: 'mask',
     name: 'マスク',
     description: '粉じんや避難所での衛生対策に使える。',
   },
   {
+    id: 'thermometer',
     name: '体温計',
     description: '避難中や避難所で体調を確認するときに役立つ。',
   },
   {
+    id: 'cooling-blanket',
     name: '冷却シート・保温シート',
     description: '暑さや寒さから体を守り、避難生活の負担を減らせる。',
   },
 ]
+
+// 全アイテムのflag初期値を作る関数。
+// 購入数と収納数をnumberで持つため、後から複数購入にも対応できる。
+const createInitialItemFlags = (): Record<ItemId, ItemFlags> => ({
+  'furniture-fasteners': { purchased: 0, packed: 0 },
+  'window-film': { purchased: 0, packed: 0 },
+  flashlight: { purchased: 0, packed: 0 },
+  radio: { purchased: 0, packed: 0 },
+  'power-bank': { purchased: 0, packed: 0 },
+  'gloves-slippers': { purchased: 0, packed: 0 },
+  water: { purchased: 0, packed: 0 },
+  'emergency-food': { purchased: 0, packed: 0 },
+  'canned-food': { purchased: 0, packed: 0 },
+  'nutrition-supplements': { purchased: 0, packed: 0 },
+  'retort-rice': { purchased: 0, packed: 0 },
+  'portable-toilet': { purchased: 0, packed: 0 },
+  'first-aid-kit': { purchased: 0, packed: 0 },
+  medication: { purchased: 0, packed: 0 },
+  disinfectant: { purchased: 0, packed: 0 },
+  mask: { purchased: 0, packed: 0 },
+  thermometer: { purchased: 0, packed: 0 },
+  'cooling-blanket': { purchased: 0, packed: 0 },
+})
+
+// ショップ画面に渡す購入数だけのデータを作る関数。
+const createPurchasedItemCounts = (
+  itemFlags: Record<ItemId, ItemFlags>,
+): Record<ItemId, number> => {
+  return Object.fromEntries(
+    Object.entries(itemFlags).map(([itemId, flags]) => [
+      itemId,
+      flags.purchased,
+    ]),
+  ) as Record<ItemId, number>
+}
+
+// スマホなど、アイテム以外の行動flagの初期値。
+const createInitialStoryFlags = (): StoryFlags => ({
+  contactedFamily: false,
+  checkedNews: false,
+  checkedShelter: false,
+})
+
+// 部屋対策の実行済みflagの初期値。
+const createInitialRoomMeasureFlags = (): Record<string, boolean> =>
+  Object.fromEntries(roomMeasureActions.map((action) => [action, false]))
+
 
 function App() {
   const [screen, setScreen] = useState<Screen>('book-warning')
@@ -256,12 +344,8 @@ function App() {
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [transitionText, setTransitionText] = useState<string | null>(null)
   const [hoveredAction, setHoveredAction] = useState<string | null>(null)
-  const [hoveredItem, setHoveredItem] = useState<(typeof backpackItems)[number] | null>(
-    null,
-  )
-  const [selectedItem, setSelectedItem] = useState<(typeof backpackItems)[number] | null>(
-    null,
-  )
+  const [hoveredItem, setHoveredItem] = useState<BackpackItem | null>(null)
+  const [selectedItem, setSelectedItem] = useState<BackpackItem | null>(null)
   const [isUiHidden, setIsUiHidden] = useState(false)
   const [isLogOpen, setIsLogOpen] = useState(false)
   const [isPhoneOpen, setIsPhoneOpen] = useState(false)
@@ -271,6 +355,23 @@ function App() {
   const [dialogueLog, setDialogueLog] = useState<Dialogue[]>([
     bookWarningDialogues[0],
   ])
+
+  // 商品IDごとの購入数とリュック収納数。
+  // ショップ画面・リュック画面・災害後判定で共通利用する。
+  const [itemFlags, setItemFlags] = useState<Record<ItemId, ItemFlags>>(
+    createInitialItemFlags,
+  )
+
+  // スマホでの連絡や避難場所確認など、アイテム以外の行動flag。
+  const [storyFlags, setStoryFlags] = useState<StoryFlags>(
+    createInitialStoryFlags,
+  )
+
+  // 部屋の対策が実行済みかを管理するflag。
+  const [roomMeasureFlags, setRoomMeasureFlags] = useState<Record<string, boolean>>(
+    createInitialRoomMeasureFlags,
+  )
+
   const logBodyRef = useRef<HTMLDivElement | null>(null)
 
   const isBookWarning = screen === 'book-warning'
@@ -289,6 +390,22 @@ function App() {
   const shouldHideGlobalControls = isBadEnd || isAfterBadEnd
   const currentDayLabel = getDayLabel(currentDay)
   const preparationDialogue = getPreparationDialogue(currentDay)
+
+  // ShopScreenに渡す購入数データ。
+  // itemFlagsから購入数だけを取り出して作る。
+  const purchasedItemCounts = useMemo(
+    () => createPurchasedItemCounts(itemFlags),
+    [itemFlags],
+  )
+
+  // リュック画面には購入数が1以上のアイテムだけを表示する。
+  const ownedBackpackItems = useMemo(
+    () => backpackItems.filter((item) => itemFlags[item.id].purchased > 0),
+    [itemFlags],
+  )
+
+  // 部屋対策の達成数。今後のエンディング判定や結果画面に使える。
+  const completedRoomMeasureCount = Object.values(roomMeasureFlags).filter(Boolean).length
   const canAdvanceDialogue =
     isBookWarning ||
     isRoomIntro ||
@@ -357,19 +474,34 @@ function App() {
                   }
               : isBackpack
                 ? selectedItem
-                  ? {
-                      speaker: selectedItem.name,
-                      text: selectedItem.description,
-                    }
-                  : hoveredItem
+                  ? itemFlags[selectedItem.id].packed >=
+                    itemFlags[selectedItem.id].purchased
                     ? {
-                        speaker: hoveredItem.name,
-                        text: hoveredItem.description,
+                        speaker: 'ナレーション',
+                        text: `${selectedItem.name}は購入した分をすべてリュックに入れています。`,
                       }
                     : {
                         speaker: 'ナレーション',
-                        text: '持っているものを確認して、非常用リュックに入れる準備をしよう。',
+                        text: `${selectedItem.name}をリュックに入れますか？ 購入数: ${
+                          itemFlags[selectedItem.id].purchased
+                        } / リュック: ${itemFlags[selectedItem.id].packed}`,
                       }
+                  : hoveredItem
+                    ? {
+                        speaker: hoveredItem.name,
+                        text: `${hoveredItem.description} 購入数: ${
+                          itemFlags[hoveredItem.id].purchased
+                        } / リュック: ${itemFlags[hoveredItem.id].packed}`,
+                      }
+                    : ownedBackpackItems.length === 0
+                      ? {
+                          speaker: 'ナレーション',
+                          text: 'ショップで購入したアイテムがまだありません。',
+                        }
+                      : {
+                          speaker: 'ナレーション',
+                          text: '購入したものを確認して、非常用リュックに入れる準備をしよう。',
+                        }
                 : preparationDialogue
   const isLastBookDialogue =
     isBookWarning && dialogueIndex === bookWarningDialogues.length - 1
@@ -406,6 +538,9 @@ function App() {
     setIsMeasuresOpen(false)
     setSelectedMeasure(null)
     setIsQuitMessageVisible(false)
+    setItemFlags(createInitialItemFlags())
+    setStoryFlags(createInitialStoryFlags())
+    setRoomMeasureFlags(createInitialRoomMeasureFlags())
     setDialogueLog([bookWarningDialogues[0]])
   }
 
@@ -425,6 +560,90 @@ function App() {
 
       return [...current, dialogue]
     })
+  }
+
+  // ショップで商品を購入したときの処理。
+  // purchasedを+1して購入数として管理する。
+  const handleBuyItem = (itemId: ItemId, itemName: string) => {
+    setItemFlags((current) => ({
+      ...current,
+      [itemId]: {
+        ...current[itemId],
+        purchased: current[itemId].purchased + 1,
+      },
+    }))
+
+    addDialogueLog({
+      speaker: 'ナレーション',
+      text: `${itemName}を購入した。`,
+    })
+  }
+
+  // リュック画面で「はい」を押したときの処理。
+  // packedを+1して、購入数以上は入れられないようにする。
+  const handlePackSelectedItem = () => {
+    if (!selectedItem) {
+      return
+    }
+
+    const flags = itemFlags[selectedItem.id]
+
+    if (flags.packed >= flags.purchased) {
+      addDialogueLog({
+        speaker: 'ナレーション',
+        text: `${selectedItem.name}はこれ以上リュックに入れられない。`,
+      })
+      setSelectedItem(null)
+      return
+    }
+
+    setItemFlags((current) => ({
+      ...current,
+      [selectedItem.id]: {
+        ...current[selectedItem.id],
+        packed: current[selectedItem.id].packed + 1,
+      },
+    }))
+
+    addDialogueLog({
+      speaker: 'ナレーション',
+      text: `${selectedItem.name}をリュックに入れた。`,
+    })
+
+    setSelectedItem(null)
+  }
+
+  // スマホ画面の各行動を実行済みflagとして保存する。
+  const handlePhoneAction = (flagName: keyof StoryFlags, logText: string) => {
+    setStoryFlags((current) => ({
+      ...current,
+      [flagName]: true,
+    }))
+
+    addDialogueLog({
+      speaker: 'ナレーション',
+      text: logText,
+    })
+  }
+
+  // 部屋対策の「はい」を押したときの処理。
+  // 選んだ対策を実行済みとして保存する。
+  const handleConfirmMeasure = () => {
+    if (!selectedMeasure) {
+      return
+    }
+
+    setRoomMeasureFlags((current) => ({
+      ...current,
+      [selectedMeasure]: true,
+    }))
+
+    addDialogueLog({
+      speaker: 'ナレーション',
+      text: `${selectedMeasure}を実行した。`,
+    })
+
+    setSelectedMeasure(null)
   }
 
   const finishTransition = () => {
@@ -654,16 +873,12 @@ function App() {
     return (
       <ShopScreen
         dayLabel={currentDayLabel}
+        purchasedItemCounts={purchasedItemCounts}
         onBack={() => {
           addDialogueLog(preparationDialogue)
           setScreen('preparation')
         }}
-        onBuy={(itemId) => {
-          addDialogueLog({
-            speaker: 'ナレーション',
-            text: `${itemId}を購入した。`,
-          })
-        }}
+        onBuy={handleBuyItem}
       />
     )
   }
@@ -878,9 +1093,39 @@ function App() {
             >
               <img src={phoneScreenBackground} alt="" />
               <div className="phone-app-grid" aria-label="スマホアプリ">
-                <button type="button">連絡</button>
-                <button type="button">ニュース</button>
-                <button type="button">避難場所</button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handlePhoneAction(
+                      'contactedFamily',
+                      '家族に連絡して、地震への備えを共有した。',
+                    )
+                  }
+                >
+                  連絡{storyFlags.contactedFamily ? '済み' : ''}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handlePhoneAction(
+                      'checkedNews',
+                      'ニュースで防災情報と最新の注意点を確認した。',
+                    )
+                  }
+                >
+                  ニュース{storyFlags.checkedNews ? '確認済み' : ''}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handlePhoneAction(
+                      'checkedShelter',
+                      '避難場所と避難経路を確認した。',
+                    )
+                  }
+                >
+                  避難場所{storyFlags.checkedShelter ? '確認済み' : ''}
+                </button>
               </div>
             </div>
           </div>
@@ -903,15 +1148,21 @@ function App() {
               </div>
               <p>地震が来る前に、危ない場所を確認しよう。</p>
               <div className="measure-action-list">
-                {roomMeasureActions.map((action) => (
-                  <button
-                    type="button"
-                    key={action}
-                    onClick={() => setSelectedMeasure(action)}
-                  >
-                    {action}
-                  </button>
-                ))}
+                {roomMeasureActions.map((action) => {
+                  const isDone = roomMeasureFlags[action]
+
+                  return (
+                    <button
+                      type="button"
+                      key={action}
+                      className={isDone ? 'is-completed' : ''}
+                      onClick={() => setSelectedMeasure(action)}
+                    >
+                      {action}
+                      {isDone ? '（実行済み）' : ''}
+                    </button>
+                  )
+                })}
               </div>
             </section>
           </div>
@@ -938,23 +1189,36 @@ function App() {
             <aside className="inventory-panel" aria-label="現在持っているアイテム">
               <h2>持っているアイテム</h2>
               <ul>
-                {backpackItems.map((item) => (
-                  <li key={item.name}>
-                    <button
-                      type="button"
-                      onMouseEnter={() => setHoveredItem(item)}
-                      onMouseLeave={() => setHoveredItem(null)}
-                      onFocus={() => setHoveredItem(item)}
-                      onBlur={() => setHoveredItem(null)}
-                      onClick={() => {
-                        setSelectedItem(item)
-                      }}
-                    >
-                      <span className="item-icon-slot" aria-hidden="true" />
-                      <span>{item.name}</span>
-                    </button>
-                  </li>
-                ))}
+                {ownedBackpackItems.length === 0 ? (
+                  <li>ショップで購入したアイテムがありません。</li>
+                ) : (
+                  ownedBackpackItems.map((item) => {
+                    const flags = itemFlags[item.id]
+
+                    return (
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          onMouseEnter={() => setHoveredItem(item)}
+                          onMouseLeave={() => setHoveredItem(null)}
+                          onFocus={() => setHoveredItem(item)}
+                          onBlur={() => setHoveredItem(null)}
+                          onClick={() => {
+                            setSelectedItem(item)
+                          }}
+                        >
+                          <span className="item-icon-slot" aria-hidden="true" />
+                          <span>
+                            {item.name}
+                            <small>
+                              購入数: {flags.purchased} / リュック: {flags.packed}
+                            </small>
+                          </span>
+                        </button>
+                      </li>
+                    )
+                  })
+                )}
               </ul>
             </aside>
           </>
@@ -962,10 +1226,10 @@ function App() {
 
         {isBackpack && selectedItem && !isUiHidden && (
           <div className="confirm-modal-overlay" role="dialog" aria-modal="true">
-            <section className="confirm-modal" aria-label="アイテム使用確認">
-              <p>{selectedItem.name}を使いますか？</p>
+            <section className="confirm-modal" aria-label="アイテム収納確認">
+              <p>{selectedItem.name}をリュックに入れますか？</p>
               <div className="confirm-actions">
-                <button type="button" onClick={() => setSelectedItem(null)}>
+                <button type="button" onClick={handlePackSelectedItem}>
                   はい
                 </button>
                 <button type="button" onClick={() => setSelectedItem(null)}>
@@ -981,7 +1245,7 @@ function App() {
             <section className="confirm-modal" aria-label="対策確認">
               <p>{selectedMeasure}を実行しますか？</p>
               <div className="confirm-actions">
-                <button type="button" onClick={() => setSelectedMeasure(null)}>
+                <button type="button" onClick={handleConfirmMeasure}>
                   はい
                 </button>
                 <button type="button" onClick={() => setSelectedMeasure(null)}>
@@ -1019,6 +1283,12 @@ function App() {
         {isResultReview && (
           <section className="result-review-panel" aria-label="今回の振り返り">
             <h2>今回の振り返り</h2>
+            <p>
+              購入済みアイテム: {ownedBackpackItems.length}種類 / 部屋対策:{' '}
+              {completedRoomMeasureCount}件 / 家族連絡:{' '}
+              {storyFlags.contactedFamily ? '済み' : '未実施'} / 避難場所確認:{' '}
+              {storyFlags.checkedShelter ? '済み' : '未実施'}
+            </p>
             <div className="review-columns">
               <section>
                 <h3>足りなかった備え</h3>
@@ -1100,3 +1370,547 @@ function App() {
 }
 
 export default App
+
+//　これはコメントアウトされた古いコードです。新しいコードは上記の通りです。菊池駿一
+// import { useEffect, useRef, useState } from 'react'
+// import backpackBackground from './assets/backgrounds/リュック画面.png'
+// import bookWarningBackground from './assets/backgrounds/予告本画面.png'
+// import normalRoomBackground from './assets/backgrounds/通常部屋画面.png'
+// import backpackIcon from './assets/icons/リュックicon.png'
+// import shopIcon from './assets/icons/ショップicon.png'
+// import './App.css'
+// import ShopScreen from './screens/ShopScreen'
+
+// type Screen = 'book-warning' | 'room-intro' | 'preparation' | 'backpack' | 'shop'
+
+// type Dialogue = {
+//   speaker: string
+//   text: string
+// }
+
+// const bookWarningDialogues: Dialogue[] = [
+//   {
+//     speaker: '主人公',
+//     text: '……なんだ、この本。',
+//   },
+//   {
+//     speaker: '主人公',
+//     text: '『ワイが見た未来』……？',
+//   },
+//   {
+//     speaker: '主人公',
+//     text: '三日後、この街で大きな地震が起こる……って書いてある。',
+//   },
+//   {
+//     speaker: '主人公',
+//     text: 'ただの作り話だよな。でも、なぜか嫌な感じがする。',
+//   },
+//   {
+//     speaker: '主人公',
+//     text: '何か、今のうちにできることをしておいた方がいいかもしれない。',
+//   },
+// ]
+
+// const roomDialogue: Dialogue = {
+//   speaker: 'ナレーション',
+//   text: '地震が起こるとされる日まで、あと3日。何をするか選ぼう。',
+// }
+
+// const roomIntroDialogues: Dialogue[] = [
+//   {
+//     speaker: '主人公',
+//     text: '……いつもの部屋なのに、さっきの本のことが頭から離れない。',
+//   },
+//   {
+//     speaker: '主人公',
+//     text: 'もし本当に地震が来るなら、今のうちにできることを考えないと。',
+//   },
+// ]
+// // 追加：購入済みアイテムの管理この管理は0か1で持っているか管理する
+// const backpackItems = [
+//   {
+//     id: 'water',
+//     name: '飲料水',
+//     description: '地震後に水分を確保するための大切な備え。',
+//   },
+//   {
+//     id: 'emergency-food',
+//     name: '非常食セット',
+//     description: '避難後や停電時でも食べられる食料。',
+//   },
+//   {
+//     id: 'flashlight',
+//     name: '懐中電灯',
+//     description: '停電した部屋や夜の避難で足元を照らせる。',
+//   },
+//   {
+//     id: 'power-bank',
+//     name: 'モバイルバッテリー',
+//     description: 'スマホの充電を保ち、連絡や情報確認を続けられる。',
+//   },
+//   {
+//     id: 'first-aid-kit',
+//     name: '救急セット',
+//     description: '軽いけがをしたときに応急処置ができる。',
+//   },
+//   {
+//     id: 'furniture-fasteners',
+//     name: '家具固定器具',
+//     description: '棚や家具を固定して、揺れで倒れる危険を減らせる。',
+//   },
+//   {
+//     id: 'window-film',
+//     name: '窓ガラス飛散防止フィルム',
+//     description: '割れたガラスが飛び散るのを防ぎ、けがをしにくくする。',
+//   },
+//   {
+//     id: 'radio',
+//     name: '携帯ラジオ',
+//     description: '停電や通信障害のときでも避難情報を確認できる。',
+//   },
+//   {
+//     id: 'gloves-slippers',
+//     name: '軍手・厚底スリッパ',
+//     description: '割れたガラスや散乱物の上を歩くときに足元を守れる。',
+//   },
+//   {
+//     id: 'canned-food',
+//     name: '缶詰',
+//     description: '火や水が使えない状況でも食べられる保存食。',
+//   },
+//   {
+//     id: 'nutrition-supplements',
+//     name: '栄養補助食品',
+//     description: '短時間で食べられて、避難中の体力を保ちやすい。',
+//   },
+//   {
+//     id: 'retort-pizza',
+//     name: '冷凍ピザ',
+//     description: '自宅に残る場合や避難生活で役立つ備蓄食。',
+//   },
+//   {
+//     id: 'portable-toilet',
+//     name: '簡易トイレ',
+//     description: '断水したときや避難所でトイレに困りにくくなる。',
+//   },
+//   {
+//     id: 'medication',
+//     name: '痛み止め',
+//     description: '体調不良や持病がある場合に欠かせない備え。',
+//   },
+//   {
+//     id: 'disinfectant',
+//     name: '消毒液・ウェットシート',
+//     description: '手や傷口を清潔にして、衛生状態を保ちやすくする。'
+//   },
+//   {
+//     id: 'mask',
+//     name: 'マスク',
+//     description: '粉じんや避難所での衛生対策に使える。',
+//   },
+//   {
+//     id: 'thermometer',
+//     name: '体温計',
+//     description: '避難中や避難所で体調を確認するときに役立つ。',
+//   },
+//   {
+//     id: 'cooling-blanket',
+//     name: '冷却シート・保温シート',
+//     description: '暑さや寒さから体を守り、避難生活の負担を減らせる。',
+//   },
+// ]
+
+// function App() {
+//   const [screen, setScreen] = useState<Screen>('book-warning')
+//   const [dialogueIndex, setDialogueIndex] = useState(0)
+//   const [roomIntroIndex, setRoomIntroIndex] = useState(0)
+//   const [isTransitioning, setIsTransitioning] = useState(false)
+//   const [transitionText, setTransitionText] = useState<string | null>(null)
+//   const [hoveredAction, setHoveredAction] = useState<string | null>(null)
+//   const [hoveredItem, setHoveredItem] = useState<(typeof backpackItems)[number] | null>(
+//     null,
+//   )
+//   const [selectedItem, setSelectedItem] = useState<(typeof backpackItems)[number] | null>(
+//     null,
+//   )
+//   const [isUiHidden, setIsUiHidden] = useState(false)
+//   const [isLogOpen, setIsLogOpen] = useState(false)
+//   const [dialogueLog, setDialogueLog] = useState<Dialogue[]>([
+//     bookWarningDialogues[0],
+//   ])
+//   const logBodyRef = useRef<HTMLDivElement | null>(null)
+
+//   const isBookWarning = screen === 'book-warning'
+//   const isRoomIntro = screen === 'room-intro'
+//   const isPreparation = screen === 'preparation'
+//   const isBackpack = screen === 'backpack'
+//   const isShop = screen === 'shop'
+//   const currentDialogue = isBookWarning
+//     ? bookWarningDialogues[dialogueIndex]
+//     : isRoomIntro
+//       ? roomIntroDialogues[roomIntroIndex]
+//       : hoveredAction === 'shop'
+//         ? {
+//             speaker: 'ナレーション',
+//             text: 'ショップに行きますか？',
+//           }
+//         : hoveredAction === 'backpack'
+//           ? {
+//               speaker: 'ナレーション',
+//               text: 'リュックを整理しますか？',
+//             }
+//           : hoveredAction === 'phase'
+//             ? {
+//                 speaker: 'ナレーション',
+//                 text: '何か対策をしよう。',
+//               }
+//             : hoveredAction === 'days-left'
+//               ? {
+//                   speaker: '主人公',
+//                   text: 'あと三日で地震が起こるはず……何か対策しないと。',
+//                 }
+//               : isBackpack
+//                 ? selectedItem
+//                   ? {
+//                       speaker: 'ナレーション',
+//                       text: `${selectedItem.name}を使いますか？`,
+//                     }
+//                   : hoveredItem
+//                     ? {
+//                         speaker: hoveredItem.name,
+//                         text: hoveredItem.description,
+//                       }
+//                     : {
+//                         speaker: 'ナレーション',
+//                         text: '持っているものを確認して、非常用リュックに入れる準備をしよう。',
+//                       }
+//                 : roomDialogue
+//   const isLastBookDialogue =
+//     isBookWarning && dialogueIndex === bookWarningDialogues.length - 1
+//   const isLastRoomIntroDialogue =
+//     isRoomIntro && roomIntroIndex === roomIntroDialogues.length - 1
+
+//   useEffect(() => {
+//     if (isLogOpen && logBodyRef.current) {
+//       logBodyRef.current.scrollTop = logBodyRef.current.scrollHeight
+//     }
+//   }, [isLogOpen, dialogueLog])
+
+//   const addDialogueLog = (dialogue: Dialogue) => {
+//   setDialogueLog((current) => {
+//     const latest = current.at(-1)
+
+//     if (latest?.speaker === dialogue.speaker && latest.text === dialogue.text) {
+//       return current
+//     }
+
+//     return [...current, dialogue]
+//   })
+// }
+
+// // 追加：購入アイテム管理
+// const buyItem = (itemId: string) => {
+//   setPurchasedItems((current) => {
+//     if (current.includes(itemId)) {
+//       return current
+//     }
+
+//     return [...current, itemId]
+//   })
+// }
+
+// // 追加：購入済み判定
+// const hasPurchasedItem = (itemId: string) => {
+//   return purchasedItems.includes(itemId)
+// }
+
+//   const handleNextDialogue = () => {
+//     if (isTransitioning) {
+//       return
+//     }
+
+//     if (isBookWarning && isLastBookDialogue) {
+//       setIsTransitioning(true)
+
+//       window.setTimeout(() => {
+//         setScreen('room-intro')
+//         setDialogueIndex(0)
+//         addDialogueLog(roomIntroDialogues[0])
+//       }, 140)
+
+//       window.setTimeout(() => {
+//         setIsTransitioning(false)
+//       }, 520)
+
+//       return
+//     }
+
+//     if (isBookWarning) {
+//       const nextIndex = dialogueIndex + 1
+
+//       setDialogueIndex(nextIndex)
+//       addDialogueLog(bookWarningDialogues[nextIndex])
+//       return
+//     }
+
+//     if (isRoomIntro && isLastRoomIntroDialogue) {
+//       setTransitionText('-対策フェーズ開始-')
+//       setIsTransitioning(true)
+
+//       window.setTimeout(() => {
+//         setScreen('preparation')
+//         setRoomIntroIndex(0)
+//         addDialogueLog(roomDialogue)
+//       }, 140)
+
+//       window.setTimeout(() => {
+//         setIsTransitioning(false)
+//         setTransitionText(null)
+//       }, 620)
+
+//       return
+//     }
+
+//     if (isRoomIntro) {
+//       const nextIndex = roomIntroIndex + 1
+
+//       setRoomIntroIndex(nextIndex)
+//       addDialogueLog(roomIntroDialogues[nextIndex])
+//     }
+//   }
+
+//   if (isShop) {
+//     return (
+//       <ShopScreen
+//         onBack={() => {
+//           addDialogueLog(roomDialogue)
+//           setScreen('preparation')
+//         }}
+//         onBuy={(itemId) => {
+//           addDialogueLog({
+//             speaker: 'ナレーション',
+//             text: `${itemId}を購入した。`,
+//           })
+//         }}
+//       />
+//     )
+//   }
+
+//   return (
+//     <main className="game-screen">
+//       <section
+//         className="scene"
+//         style={{
+//           backgroundImage: `url(${
+//             isBookWarning
+//               ? bookWarningBackground
+//               : isBackpack
+//                 ? backpackBackground
+//                 : normalRoomBackground
+//           })`,
+//         }}
+//         aria-label={
+//           isBookWarning
+//             ? '予告本を見る場面'
+//             : isBackpack
+//               ? 'リュックを整理する場面'
+//               : '主人公の部屋'
+//         }
+//       >
+//         <div
+//           className={`scene-transition ${isTransitioning ? 'is-active' : ''}`}
+//           aria-hidden="true"
+//         >
+//           {transitionText && (
+//             <strong className="transition-title">{transitionText}</strong>
+//           )}
+//         </div>
+
+//         <button
+//           type="button"
+//           className="ui-toggle"
+//           onClick={() => setIsUiHidden((current) => !current)}
+//         >
+//           {isUiHidden ? 'UI表示' : 'UI非表示'}
+//         </button>
+
+//         {!isUiHidden && (
+//           <button
+//             type="button"
+//             className={`log-toggle ${isBackpack ? 'is-backpack' : ''}`}
+//             onClick={() => setIsLogOpen(true)}
+//           >
+//             テキストログ
+//           </button>
+//         )}
+
+//         {isPreparation && !isUiHidden && (
+//           <>
+//             <header className="game-header">
+//               <div
+//                 className="game-header-days"
+//                 onMouseEnter={() => setHoveredAction('days-left')}
+//                 onMouseLeave={() => setHoveredAction(null)}
+//                 onFocus={() => setHoveredAction('days-left')}
+//                 onBlur={() => setHoveredAction(null)}
+//                 tabIndex={0}
+//                 aria-label="地震発生までの残り日数"
+//               >
+//                 災害まで3日
+//               </div>
+//               <div
+//                 className="game-header-title"
+//                 onMouseEnter={() => setHoveredAction('phase')}
+//                 onMouseLeave={() => setHoveredAction(null)}
+//                 onFocus={() => setHoveredAction('phase')}
+//                 onBlur={() => setHoveredAction(null)}
+//                 tabIndex={0}
+//                 aria-label="現在のフェーズ"
+//               >
+//                 対策フェーズ中
+//               </div>
+//               <div className="game-header-action" aria-hidden="true" />
+//             </header>
+//             <div className="action-icons" aria-label="対策行動">
+//               <button
+//                 type="button"
+//                 className="action-icon-button"
+//                 onMouseEnter={() => setHoveredAction('shop')}
+//                 onMouseLeave={() => setHoveredAction(null)}
+//                 onFocus={() => setHoveredAction('shop')}
+//                 onBlur={() => setHoveredAction(null)}
+//                 onClick={() => {
+//                   setHoveredAction(null)
+//                   addDialogueLog({
+//                     speaker: 'ナレーション',
+//                     text: 'ショップで必要な防災用品を確認しよう。',
+//                   })
+//                   setScreen('shop')
+//                 }}
+//               >
+//                 <img src={shopIcon} alt="" />
+//                 <span>ショップ</span>
+//               </button>
+//               <button
+//                 type="button"
+//                 className="action-icon-button"
+//                 onMouseEnter={() => setHoveredAction('backpack')}
+//                 onMouseLeave={() => setHoveredAction(null)}
+//                 onFocus={() => setHoveredAction('backpack')}
+//                 onBlur={() => setHoveredAction(null)}
+//                 onClick={() => {
+//                   setHoveredAction(null)
+//                   addDialogueLog({
+//                     speaker: 'ナレーション',
+//                     text: '持っているものを確認して、非常用リュックに入れる準備をしよう。',
+//                   })
+//                   setScreen('backpack')
+//                 }}
+//               >
+//                 <img src={backpackIcon} alt="" />
+//                 <span>リュック</span>
+//               </button>
+//             </div>
+//           </>
+//         )}
+
+//         {isBackpack && !isUiHidden && (
+//           <>
+//             <header className="game-header">
+//               <div className="game-header-days">災害まで3日</div>
+//               <div className="game-header-title">リュック</div>
+//               <button
+//                 type="button"
+//                 className="game-header-action"
+//                 onClick={() => {
+//                   setHoveredItem(null)
+//                   setSelectedItem(null)
+//                   addDialogueLog(roomDialogue)
+//                   setScreen('preparation')
+//                 }}
+//               >
+//                 対策に戻る
+//               </button>
+//             </header>
+//             <aside className="inventory-panel" aria-label="現在持っているアイテム">
+//               <h2>持っているアイテム</h2>
+//               <ul>
+//                 {backpackItems.map((item) => (
+//                   <li key={item.name}>
+//                     <button
+//                       type="button"
+//                       onMouseEnter={() => setHoveredItem(item)}
+//                       onMouseLeave={() => setHoveredItem(null)}
+//                       onFocus={() => setHoveredItem(item)}
+//                       onBlur={() => setHoveredItem(null)}
+//                       onClick={() => {
+//                         setSelectedItem(item)
+//                         addDialogueLog({
+//                           speaker: 'ナレーション',
+//                           text: `${item.name}を使いますか？`,
+//                         })
+//                       }}
+//                     >
+//                       <span className="item-icon-slot" aria-hidden="true" />
+//                       <span>{item.name}</span>
+//                     </button>
+//                   </li>
+//                 ))}
+//               </ul>
+//             </aside>
+//           </>
+//         )}
+
+//         {isBackpack && selectedItem && !isUiHidden && (
+//           <div className="confirm-actions" aria-label="アイテム使用確認">
+//             <button type="button" onClick={() => setSelectedItem(null)}>
+//               はい
+//             </button>
+//             <button type="button" onClick={() => setSelectedItem(null)}>
+//               いいえ
+//             </button>
+//           </div>
+//         )}
+
+//         {isLogOpen && (
+//           <div className="text-log-overlay" role="dialog" aria-modal="true">
+//             <section className="text-log-panel" aria-label="テキストログ">
+//               <div className="text-log-header">
+//                 <h2>テキストログ</h2>
+//                 <button type="button" onClick={() => setIsLogOpen(false)}>
+//                   閉じる
+//                 </button>
+//               </div>
+//               <div className="text-log-body" ref={logBodyRef}>
+//                 {dialogueLog.map((dialogue, index) => (
+//                   <article
+//                     className="text-log-entry"
+//                     key={`${dialogue.speaker}-${dialogue.text}-${index}`}
+//                   >
+//                     <strong>{dialogue.speaker}</strong>
+//                     <p>{dialogue.text}</p>
+//                   </article>
+//                 ))}
+//               </div>
+//             </section>
+//           </div>
+//         )}
+
+//         <button
+//           type="button"
+//           className={`message-box ${isUiHidden ? 'is-hidden' : ''}`}
+//           onClick={handleNextDialogue}
+//           aria-label={isBookWarning ? '次のセリフへ進む' : '自由行動を選ぶ'}
+//         >
+//           <span className="nameplate">{currentDialogue.speaker}</span>
+//           <span className="dialogue-text">{currentDialogue.text}</span>
+//           <span className="next-mark">
+//             {isBookWarning || isRoomIntro ? '▼' : ''}
+//           </span>
+//         </button>
+//       </section>
+//     </main>
+//   )
+// }
+
+// export default App
