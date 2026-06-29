@@ -6,7 +6,6 @@
   --shop-panel-bg: rgba(8, 8, 12, 0.78);
   --shop-card-bg: rgba(255, 255, 255, 0.07);
   --shop-card-hover-bg: rgba(249, 115, 22, 0.13);
-  --shop-card-purchased-bg: rgba(249, 115, 22, 0.08);
   --shop-border: rgba(255, 255, 255, 0.14);
   --shop-text: #f0ece4;
   --shop-text-dim: rgba(240, 236, 228, 0.58);
@@ -187,39 +186,13 @@
 
 /* ── 購入済み ── */
 .shop-list-item.is-purchased {
-  border-left-color: var(--shop-accent);
-  background: var(--shop-card-purchased-bg);
-  cursor: default;
-  opacity: 0.72;
-}
-
-.shop-list-item.is-purchased:hover,
-.shop-list-item.is-purchased:focus-visible {
-  transform: none;
-  box-shadow: none;
-  background: var(--shop-card-purchased-bg);
-  border-left-color: var(--shop-accent);
+  opacity: 0.82;
 }
 
 .shop-list-item.is-purchased .list-name {
   color: var(--shop-text-dim);
   text-decoration: line-through;
   text-decoration-color: rgba(249, 115, 22, 0.5);
-}
-
-.purchased-badge {
-  margin-left: auto;
-  flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--shop-accent);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 900;
-  box-shadow: 0 0 8px var(--shop-accent-glow);
 }
 
 /* ── アイコンスロット ── */

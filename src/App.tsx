@@ -6,7 +6,9 @@ import bookWarningBackground from './assets/backgrounds/予告本画面.png'
 import normalRoomBackground from './assets/backgrounds/通常部屋画面.png'
 import nightRoomBackground from './assets/backgrounds/通常部屋画面夜.png'
 import phoneScreenBackground from './assets/backgrounds/スマホ画面.png'
+import measureIcon from './assets/icons/対策icon.png'
 import backpackIcon from './assets/icons/リュックicon.png'
+import phoneIcon from './assets/icons/スマホicon.png'
 import shopIcon from './assets/icons/ショップicon.png'
 import './App.css'
 import ShopScreen, { type ItemId } from './screens/ShopScreen'
@@ -19,6 +21,7 @@ type Screen =
   | 'shop'
   | 'night'
   | 'day-start'
+  | 'quake-arrival'
   | 'post-disaster'
   | 'bad-end'
   | 'result-review'
@@ -73,7 +76,11 @@ const bookWarningDialogues: Dialogue[] = [
   },
   {
     speaker: '主人公',
-    text: '二日後、この街で大きな地震が起こる……って書いてある。',
+    text: '二日後、この街で大きな地震が起こる……',
+  },
+  {
+    speaker: '主人公',
+    text: '……って書いてある。',
   },
   {
     speaker: '主人公',
@@ -81,18 +88,22 @@ const bookWarningDialogues: Dialogue[] = [
   },
   {
     speaker: '主人公',
-    text: '何か、今のうちにできることをしておいた方がいいかもしれない。',
+    text: '今のうちに、できることをしておこう。',
   },
 ]
 
 const roomIntroDialogues: Dialogue[] = [
   {
     speaker: '主人公',
-    text: '……いつもの部屋なのに、さっきの本のことが頭から離れない。',
+    text: 'いつもの部屋なのに、落ち着かない。',
   },
   {
     speaker: '主人公',
-    text: 'もし本当に地震が来るなら、今のうちにできることを考えないと。',
+    text: 'さっきの本のことが頭から離れない。',
+  },
+  {
+    speaker: '主人公',
+    text: '本当に地震が来るなら、備えないと。',
   },
 ]
 
@@ -103,13 +114,13 @@ const getPreparationDialogue = (day: StoryDay): Dialogue => {
   if (day === 0) {
     return {
       speaker: 'ナレーション',
-      text: '予告されていた当日になった。最後にできる対策を選ぼう。',
+      text: '最後にできる対策を選ぼう。',
     }
   }
 
   return {
     speaker: 'ナレーション',
-    text: `地震が起こるとされる日まで、あと${day}日。何をするか選ぼう。`,
+    text: `災害まであと${day}日。対策を選ぼう。`,
   }
 }
 
@@ -131,7 +142,7 @@ const nightDialoguesByDay: Record<1 | 2, Dialogue[]> = {
     },
     {
       speaker: 'ナレーション',
-      text: '明日の自分に言い聞かせるように、眠りについた。',
+      text: '明日の自分に言い聞かせ、眠りについた。',
     },
   ],
 }
@@ -140,11 +151,15 @@ const dayStartDialoguesByDay: Record<0 | 1, Dialogue[]> = {
   1: [
     {
       speaker: 'ナレーション',
-      text: '朝になった。地震が起こるとされる日まで、あと一日。',
+      text: '朝になった。災害まであと一日。',
     },
     {
       speaker: '主人公',
-      text: '昨日より少し現実味が増してきた。今日も対策を進めよう。',
+      text: '昨日より現実味が増してきた。',
+    },
+    {
+      speaker: '主人公',
+      text: '今日も対策を進めよう。',
     },
   ],
   0: [
@@ -159,28 +174,41 @@ const dayStartDialoguesByDay: Record<0 | 1, Dialogue[]> = {
   ],
 }
 
+const quakeArrivalDialogue: Dialogue = {
+  speaker: '主人公',
+  text: '……ついに、この時がやってきた。',
+}
+
 const postDisasterDialogues: Dialogue[] = [
   {
-    speaker: '主人公',
-    text: '……ついに、この時がやってきた。',
+    speaker: 'ナレーション',
+    text: '大きな揺れが部屋を襲った。',
   },
   {
     speaker: 'ナレーション',
-    text: '大きな揺れが部屋を襲い、本棚が倒れ、床には物とガラス片が散らばった。',
+    text: '本棚が倒れ、床には物とガラス片が散らばった。',
   },
   {
     speaker: '主人公',
-    text: '何も準備していない。足元も見えないし、出口まで安全に進めそうにない。',
+    text: '何も準備していない。',
+  },
+  {
+    speaker: '主人公',
+    text: '足元も見えず、出口まで安全に進めそうにない。',
   },
   {
     speaker: 'ナレーション',
-    text: '備えがないまま迎えた地震は、部屋から動き出すことすら難しい状況を生んでしまった。',
+    text: '備えがないまま地震を迎えてしまった。',
+  },
+  {
+    speaker: 'ナレーション',
+    text: '部屋から動き出すことすら難しい。',
   },
 ]
 
 const badEndDialogue: Dialogue = {
   speaker: 'ナレーション',
-  text: 'Bad End。足りなかった備えを思い出し、もう一度やり直そう。',
+  text: 'Bad End。足りなかった備えを思い出そう。',
 }
 
 const resultReviewDialogue: Dialogue = {
@@ -361,6 +389,7 @@ function App() {
   const [itemFlags, setItemFlags] = useState<Record<ItemId, ItemFlags>>(
     createInitialItemFlags,
   )
+  const [purchasedItemOrder, setPurchasedItemOrder] = useState<ItemId[]>([])
 
   // スマホでの連絡や避難場所確認など、アイテム以外の行動flag。
   const [storyFlags, setStoryFlags] = useState<StoryFlags>(
@@ -381,6 +410,7 @@ function App() {
   const isShop = screen === 'shop'
   const isNight = screen === 'night'
   const isDayStart = screen === 'day-start'
+  const isQuakeArrival = screen === 'quake-arrival'
   const isPostDisaster = screen === 'post-disaster'
   const isBadEnd = screen === 'bad-end'
   const isResultReview = screen === 'result-review'
@@ -399,9 +429,24 @@ function App() {
   )
 
   // リュック画面には購入数が1以上のアイテムだけを表示する。
+  // 使用済みのアイテムは優先度を下げて下に並べる。
   const ownedBackpackItems = useMemo(
-    () => backpackItems.filter((item) => itemFlags[item.id].purchased > 0),
-    [itemFlags],
+    () =>
+      purchasedItemOrder
+        .map((itemId) => backpackItems.find((item) => item.id === itemId))
+        .filter((item): item is BackpackItem => Boolean(item))
+        .filter((item) => itemFlags[item.id].purchased > 0)
+        .sort((a, b) => {
+          const aUsed = itemFlags[a.id].packed > 0
+          const bUsed = itemFlags[b.id].packed > 0
+
+          if (aUsed === bUsed) {
+            return 0
+          }
+
+          return aUsed ? 1 : -1
+        }),
+    [itemFlags, purchasedItemOrder],
   )
 
   // 部屋対策の達成数。今後のエンディング判定や結果画面に使える。
@@ -411,6 +456,7 @@ function App() {
     isRoomIntro ||
     isNight ||
     isDayStart ||
+    isQuakeArrival ||
     isPostDisaster ||
     isBadEnd ||
     isResultReview ||
@@ -423,14 +469,16 @@ function App() {
         ? nightDialoguesByDay[currentDay as 1 | 2][nightDialogueIndex]
         : isDayStart
           ? dayStartDialoguesByDay[currentDay as 0 | 1][dayStartDialogueIndex]
-          : isPostDisaster
-            ? postDisasterDialogues[postDisasterDialogueIndex]
-            : isBadEnd
-              ? badEndDialogue
-              : isResultReview
-                ? resultReviewDialogue
-                : isRealLifeMessage
-                  ? realLifeDialogue
+          : isQuakeArrival
+            ? quakeArrivalDialogue
+            : isPostDisaster
+              ? postDisasterDialogues[postDisasterDialogueIndex]
+              : isBadEnd
+                ? badEndDialogue
+                : isResultReview
+                  ? resultReviewDialogue
+                  : isRealLifeMessage
+                    ? realLifeDialogue
       : hoveredAction === 'shop'
         ? {
             speaker: 'ナレーション',
@@ -461,7 +509,7 @@ function App() {
                   speaker: '主人公',
                   text:
                     currentDay === 0
-                      ? '予告では今日、地震が起こるはず……最後まで気を抜けない。'
+                      ? '今日、地震が起こるはず……気を抜けない。'
                       : `あと${currentDay}日で地震が起こるはず……何か対策しないと。`,
                 }
               : hoveredAction === 'finish-day'
@@ -474,33 +522,28 @@ function App() {
                   }
               : isBackpack
                 ? selectedItem
-                  ? itemFlags[selectedItem.id].packed >=
-                    itemFlags[selectedItem.id].purchased
+                  ? itemFlags[selectedItem.id].packed > 0
                     ? {
                         speaker: 'ナレーション',
-                        text: `${selectedItem.name}は購入した分をすべてリュックに入れています。`,
+                        text: `${selectedItem.name}は使用済みです。`,
                       }
                     : {
                         speaker: 'ナレーション',
-                        text: `${selectedItem.name}をリュックに入れますか？ 購入数: ${
-                          itemFlags[selectedItem.id].purchased
-                        } / リュック: ${itemFlags[selectedItem.id].packed}`,
+                        text: `${selectedItem.name}を使用しますか？`,
                       }
                   : hoveredItem
                     ? {
                         speaker: hoveredItem.name,
-                        text: `${hoveredItem.description} 購入数: ${
-                          itemFlags[hoveredItem.id].purchased
-                        } / リュック: ${itemFlags[hoveredItem.id].packed}`,
+                        text: hoveredItem.description,
                       }
                     : ownedBackpackItems.length === 0
                       ? {
                           speaker: 'ナレーション',
-                          text: 'ショップで購入したアイテムがまだありません。',
+                          text: '購入したアイテムがまだありません。',
                         }
                       : {
                           speaker: 'ナレーション',
-                          text: '購入したものを確認して、非常用リュックに入れる準備をしよう。',
+                          text: '非常用リュックに入れる準備をしよう。',
                         }
                 : preparationDialogue
   const isLastBookDialogue =
@@ -539,6 +582,7 @@ function App() {
     setSelectedMeasure(null)
     setIsQuitMessageVisible(false)
     setItemFlags(createInitialItemFlags())
+    setPurchasedItemOrder([])
     setStoryFlags(createInitialStoryFlags())
     setRoomMeasureFlags(createInitialRoomMeasureFlags())
     setDialogueLog([bookWarningDialogues[0]])
@@ -565,6 +609,10 @@ function App() {
   // ショップで商品を購入したときの処理。
   // purchasedを+1して購入数として管理する。
   const handleBuyItem = (itemId: ItemId, itemName: string) => {
+    setPurchasedItemOrder((current) =>
+      current.includes(itemId) ? current : [...current, itemId],
+    )
+
     setItemFlags((current) => ({
       ...current,
       [itemId]: {
@@ -580,7 +628,7 @@ function App() {
   }
 
   // リュック画面で「はい」を押したときの処理。
-  // packedを+1して、購入数以上は入れられないようにする。
+  // packedを使用済みflagとして扱い、同じアイテムは再使用できないようにする。
   const handlePackSelectedItem = () => {
     if (!selectedItem) {
       return
@@ -588,10 +636,10 @@ function App() {
 
     const flags = itemFlags[selectedItem.id]
 
-    if (flags.packed >= flags.purchased) {
+    if (flags.packed > 0) {
       addDialogueLog({
         speaker: 'ナレーション',
-        text: `${selectedItem.name}はこれ以上リュックに入れられない。`,
+        text: `${selectedItem.name}は使用済みです。`,
       })
       setSelectedItem(null)
       return
@@ -607,7 +655,7 @@ function App() {
 
     addDialogueLog({
       speaker: 'ナレーション',
-      text: `${selectedItem.name}をリュックに入れた。`,
+      text: `${selectedItem.name}を使用した。`,
     })
 
     setSelectedItem(null)
@@ -664,16 +712,8 @@ function App() {
     setSelectedMeasure(null)
 
     if (currentDay === 0) {
-      setTransitionText('-地震発生-')
-      setIsTransitioning(true)
-
-      window.setTimeout(() => {
-        setScreen('post-disaster')
-        setPostDisasterDialogueIndex(0)
-        addDialogueLog(postDisasterDialogues[0])
-      }, 140)
-
-      finishTransition()
+      setScreen('quake-arrival')
+      addDialogueLog(quakeArrivalDialogue)
       return
     }
 
@@ -806,6 +846,20 @@ function App() {
       return
     }
 
+    if (isQuakeArrival) {
+      setTransitionText('-地震発生-')
+      setIsTransitioning(true)
+
+      window.setTimeout(() => {
+        setScreen('post-disaster')
+        setPostDisasterDialogueIndex(0)
+        addDialogueLog(postDisasterDialogues[0])
+      }, 140)
+
+      finishTransition()
+      return
+    }
+
     if (isPostDisaster && isLastPostDisasterDialogue) {
       setTransitionText('-Bad End-')
       setIsTransitioning(true)
@@ -909,10 +963,12 @@ function App() {
             ? '予告本を見る場面'
             : isBackpack
               ? 'リュックを整理する場面'
-              : isNight
-                ? '夜の場面'
-                : isPostDisaster
-                  ? '災害後の部屋'
+            : isNight
+              ? '夜の場面'
+              : isQuakeArrival
+                ? '地震発生直前の部屋'
+              : isPostDisaster
+                ? '災害後の部屋'
                   : isBadEnd
                     ? 'バッドエンド'
                     : isResultReview
@@ -1015,10 +1071,8 @@ function App() {
                   }}
                   aria-label="対策"
                 >
-                  <span className="furniture-icon-shape" aria-hidden="true" />
-                  <span className="furniture-icon-label" aria-hidden="true">
-                    対策
-                  </span>
+                  <img src={measureIcon} alt="" />
+                  <span>対策</span>
                 </button>
               )}
               <button
@@ -1053,10 +1107,8 @@ function App() {
                 }}
                 aria-label="スマホ"
               >
-                <span className="phone-icon-shape" aria-hidden="true" />
-                <span className="phone-icon-label" aria-hidden="true">
-                  スマホ
-                </span>
+                <img src={phoneIcon} alt="" />
+                <span>スマホ</span>
               </button>
               <button
                 type="button"
@@ -1193,27 +1245,32 @@ function App() {
                   <li>ショップで購入したアイテムがありません。</li>
                 ) : (
                   ownedBackpackItems.map((item) => {
-                    const flags = itemFlags[item.id]
+                    const isUsed = itemFlags[item.id].packed > 0
 
                     return (
                       <li key={item.id}>
                         <button
                           type="button"
+                          className={isUsed ? 'is-used' : ''}
+                          aria-disabled={isUsed}
                           onMouseEnter={() => setHoveredItem(item)}
                           onMouseLeave={() => setHoveredItem(null)}
                           onFocus={() => setHoveredItem(item)}
                           onBlur={() => setHoveredItem(null)}
                           onClick={() => {
+                            if (isUsed) {
+                              addDialogueLog({
+                                speaker: 'ナレーション',
+                                text: `${item.name}は使用済みです。`,
+                              })
+                              return
+                            }
+
                             setSelectedItem(item)
                           }}
                         >
                           <span className="item-icon-slot" aria-hidden="true" />
-                          <span>
-                            {item.name}
-                            <small>
-                              購入数: {flags.purchased} / リュック: {flags.packed}
-                            </small>
-                          </span>
+                          <span className="inventory-item-name">{item.name}</span>
                         </button>
                       </li>
                     )
@@ -1226,8 +1283,8 @@ function App() {
 
         {isBackpack && selectedItem && !isUiHidden && (
           <div className="confirm-modal-overlay" role="dialog" aria-modal="true">
-            <section className="confirm-modal" aria-label="アイテム収納確認">
-              <p>{selectedItem.name}をリュックに入れますか？</p>
+            <section className="confirm-modal" aria-label="アイテム使用確認">
+              <p>{selectedItem.name}を使用しますか？</p>
               <div className="confirm-actions">
                 <button type="button" onClick={handlePackSelectedItem}>
                   はい
@@ -1283,12 +1340,24 @@ function App() {
         {isResultReview && (
           <section className="result-review-panel" aria-label="今回の振り返り">
             <h2>今回の振り返り</h2>
-            <p>
-              購入済みアイテム: {ownedBackpackItems.length}種類 / 部屋対策:{' '}
-              {completedRoomMeasureCount}件 / 家族連絡:{' '}
-              {storyFlags.contactedFamily ? '済み' : '未実施'} / 避難場所確認:{' '}
-              {storyFlags.checkedShelter ? '済み' : '未実施'}
-            </p>
+            <div className="review-summary" aria-label="対策の実施状況">
+              <div>
+                <span>購入済みアイテム</span>
+                <strong>{ownedBackpackItems.length}種類</strong>
+              </div>
+              <div>
+                <span>部屋対策</span>
+                <strong>{completedRoomMeasureCount}件</strong>
+              </div>
+              <div>
+                <span>家族連絡</span>
+                <strong>{storyFlags.contactedFamily ? '済み' : '未実施'}</strong>
+              </div>
+              <div>
+                <span>避難場所確認</span>
+                <strong>{storyFlags.checkedShelter ? '済み' : '未実施'}</strong>
+              </div>
+            </div>
             <div className="review-columns">
               <section>
                 <h3>足りなかった備え</h3>
@@ -1306,6 +1375,11 @@ function App() {
                 </ul>
               </section>
             </div>
+            <div className="panel-actions">
+              <button type="button" onClick={handleNextDialogue}>
+                次へ
+              </button>
+            </div>
           </section>
         )}
 
@@ -1320,6 +1394,11 @@ function App() {
               <li>玄関までの通路が、物や家具でふさがれないか</li>
               <li>暗い中でも使えるライトや靴が手に届く場所にあるか</li>
             </ul>
+            <div className="panel-actions">
+              <button type="button" onClick={handleNextDialogue}>
+                次へ
+              </button>
+            </div>
           </section>
         )}
 
@@ -1348,7 +1427,7 @@ function App() {
           </section>
         )}
 
-        {!isEndingActions && (
+        {!isEndingActions && !isResultReview && !isRealLifeMessage && (
           <button
             type="button"
             className={`message-box ${

@@ -261,7 +261,7 @@ export default function ShopScreen({
                   onClick={() => setSelectedItem(item)}
                   aria-label={
                     isPurchased
-                      ? `${item.name}（購入数${purchasedCount}）`
+                      ? `${item.name}（購入済み）`
                       : item.name
                   }
                 >
@@ -271,18 +271,7 @@ export default function ShopScreen({
 
                   <span className="list-name">
                     {item.name}
-                    {isPurchased && (
-                      <small className="purchased-count">
-                        購入数: {purchasedCount}
-                      </small>
-                    )}
                   </span>
-
-                  {isPurchased && (
-                    <span className="purchased-badge" aria-hidden="true">
-                      {purchasedCount}
-                    </span>
-                  )}
                 </button>
               </li>
             )
