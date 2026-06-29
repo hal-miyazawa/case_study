@@ -201,6 +201,7 @@ export default function ShopScreen({
 
   // 購入確認中の商品。nullのときは購入確認モーダルを表示しない。
   const [selectedItem, setSelectedItem] = useState<ShopItem | null>(null)
+  const [isSoldOutNoticeOpen, setIsSoldOutNoticeOpen] = useState(false)
 
   // メッセージボックスに表示する説明文。
   const messageText = selectedItem
@@ -258,7 +259,16 @@ export default function ShopScreen({
                   onMouseLeave={() => setHoverItem(null)}
                   onFocus={() => setHoverItem(item)}
                   onBlur={() => setHoverItem(null)}
-                  onClick={() => setSelectedItem(item)}
+                  onClick={() => {
+                    if (isPurchased) {
+                      setSelectedItem(null)
+                      setIsSoldOutNoticeOpen(true)
+                      return
+                    }
+
+                    setIsSoldOutNoticeOpen(false)
+                    setSelectedItem(item)
+                  }}
                   aria-label={
                     isPurchased
                       ? `${item.name}（購入済み）`
@@ -289,6 +299,19 @@ export default function ShopScreen({
               </button>
               <button type="button" onClick={() => setSelectedItem(null)}>
                 いいえ
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {isSoldOutNoticeOpen && (
+        <div className="confirm-modal-overlay" role="dialog" aria-modal="true">
+          <section className="confirm-modal" aria-label="売り切れ">
+            <p>この商品は売り切れです。</p>
+            <div className="confirm-actions">
+              <button type="button" onClick={() => setIsSoldOutNoticeOpen(false)}>
+                閉じる
               </button>
             </div>
           </section>

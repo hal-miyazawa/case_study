@@ -3,9 +3,12 @@ import badEndBackground from './assets/backgrounds/BadEnd.png'
 import afterDisasterBackground from './assets/backgrounds/災害後画面.png'
 import backpackBackground from './assets/backgrounds/リュック画面.png'
 import bookWarningBackground from './assets/backgrounds/予告本画面.png'
+import fixedAfterDisasterBackground from './assets/backgrounds/固定器具使用災害後画面.png'
+import fixedNormalRoomBackground from './assets/backgrounds/固定器具使用通常部屋画面.png'
 import normalRoomBackground from './assets/backgrounds/通常部屋画面.png'
 import nightRoomBackground from './assets/backgrounds/通常部屋画面夜.png'
 import phoneScreenBackground from './assets/backgrounds/スマホ画面.png'
+import trueEndBackground from './assets/backgrounds/TrueEnd.png'
 import measureIcon from './assets/icons/対策icon.png'
 import backpackIcon from './assets/icons/リュックicon.png'
 import phoneIcon from './assets/icons/スマホicon.png'
@@ -24,6 +27,7 @@ type Screen =
   | 'quake-arrival'
   | 'post-disaster'
   | 'bad-end'
+  | 'true-end'
   | 'result-review'
   | 'real-life-message'
   | 'ending-actions'
@@ -206,9 +210,33 @@ const postDisasterDialogues: Dialogue[] = [
   },
 ]
 
+const truePostDisasterDialogues: Dialogue[] = [
+  {
+    speaker: 'ナレーション',
+    text: '大きな揺れが部屋を襲った。',
+  },
+  {
+    speaker: 'ナレーション',
+    text: '固定した家具は倒れず、通路はふさがれなかった。',
+  },
+  {
+    speaker: '主人公',
+    text: 'よかった……動ける。',
+  },
+  {
+    speaker: 'ナレーション',
+    text: '事前の備えが、身を守る力になった。',
+  },
+]
+
 const badEndDialogue: Dialogue = {
   speaker: 'ナレーション',
   text: 'Bad End。足りなかった備えを思い出そう。',
+}
+
+const trueEndDialogue: Dialogue = {
+  speaker: 'ナレーション',
+  text: 'True End。家具固定の備えが命を守った。',
 }
 
 const resultReviewDialogue: Dialogue = {
@@ -380,6 +408,7 @@ function App() {
   const [isMeasuresOpen, setIsMeasuresOpen] = useState(false)
   const [selectedMeasure, setSelectedMeasure] = useState<string | null>(null)
   const [isQuitMessageVisible, setIsQuitMessageVisible] = useState(false)
+  const [isItemUseFlashActive, setIsItemUseFlashActive] = useState(false)
   const [dialogueLog, setDialogueLog] = useState<Dialogue[]>([
     bookWarningDialogues[0],
   ])
@@ -413,13 +442,18 @@ function App() {
   const isQuakeArrival = screen === 'quake-arrival'
   const isPostDisaster = screen === 'post-disaster'
   const isBadEnd = screen === 'bad-end'
+  const isTrueEnd = screen === 'true-end'
   const isResultReview = screen === 'result-review'
   const isRealLifeMessage = screen === 'real-life-message'
   const isEndingActions = screen === 'ending-actions'
   const isAfterBadEnd = isResultReview || isRealLifeMessage || isEndingActions
-  const shouldHideGlobalControls = isBadEnd || isAfterBadEnd
+  const shouldHideGlobalControls = isBadEnd || isTrueEnd || isAfterBadEnd
   const currentDayLabel = getDayLabel(currentDay)
   const preparationDialogue = getPreparationDialogue(currentDay)
+  const isFurnitureFastenerUsed = itemFlags['furniture-fasteners'].packed > 0
+  const currentPostDisasterDialogues = isFurnitureFastenerUsed
+    ? truePostDisasterDialogues
+    : postDisasterDialogues
 
   // ShopScreenに渡す購入数データ。
   // itemFlagsから購入数だけを取り出して作る。
@@ -459,6 +493,7 @@ function App() {
     isQuakeArrival ||
     isPostDisaster ||
     isBadEnd ||
+    isTrueEnd ||
     isResultReview ||
     isRealLifeMessage
   const currentDialogue = isBookWarning
@@ -472,13 +507,15 @@ function App() {
           : isQuakeArrival
             ? quakeArrivalDialogue
             : isPostDisaster
-              ? postDisasterDialogues[postDisasterDialogueIndex]
+              ? currentPostDisasterDialogues[postDisasterDialogueIndex]
               : isBadEnd
                 ? badEndDialogue
-                : isResultReview
-                  ? resultReviewDialogue
-                  : isRealLifeMessage
-                    ? realLifeDialogue
+                : isTrueEnd
+                  ? trueEndDialogue
+                  : isResultReview
+                    ? resultReviewDialogue
+                    : isRealLifeMessage
+                      ? realLifeDialogue
       : hoveredAction === 'shop'
         ? {
             speaker: 'ナレーション',
@@ -560,7 +597,7 @@ function App() {
       dayStartDialoguesByDay[currentDay as 0 | 1].length - 1
   const isLastPostDisasterDialogue =
     isPostDisaster &&
-    postDisasterDialogueIndex === postDisasterDialogues.length - 1
+    postDisasterDialogueIndex === currentPostDisasterDialogues.length - 1
 
   const resetGame = () => {
     setScreen('book-warning')
@@ -581,6 +618,7 @@ function App() {
     setIsMeasuresOpen(false)
     setSelectedMeasure(null)
     setIsQuitMessageVisible(false)
+    setIsItemUseFlashActive(false)
     setItemFlags(createInitialItemFlags())
     setPurchasedItemOrder([])
     setStoryFlags(createInitialStoryFlags())
@@ -657,6 +695,13 @@ function App() {
       speaker: 'ナレーション',
       text: `${selectedItem.name}を使用した。`,
     })
+
+    if (selectedItem.id === 'furniture-fasteners') {
+      setIsItemUseFlashActive(true)
+      window.setTimeout(() => {
+        setIsItemUseFlashActive(false)
+      }, 560)
+    }
 
     setSelectedItem(null)
   }
@@ -853,7 +898,7 @@ function App() {
       window.setTimeout(() => {
         setScreen('post-disaster')
         setPostDisasterDialogueIndex(0)
-        addDialogueLog(postDisasterDialogues[0])
+        addDialogueLog(currentPostDisasterDialogues[0])
       }, 140)
 
       finishTransition()
@@ -861,14 +906,14 @@ function App() {
     }
 
     if (isPostDisaster && isLastPostDisasterDialogue) {
-      setTransitionText('-Bad End-')
+      setTransitionText(isFurnitureFastenerUsed ? '-True End-' : '-Bad End-')
       setIsTransitioning(true)
 
       window.setTimeout(() => {
         setIsLogOpen(false)
-        setScreen('bad-end')
+        setScreen(isFurnitureFastenerUsed ? 'true-end' : 'bad-end')
         setPostDisasterDialogueIndex(0)
-        addDialogueLog(badEndDialogue)
+        addDialogueLog(isFurnitureFastenerUsed ? trueEndDialogue : badEndDialogue)
       }, 140)
 
       finishTransition()
@@ -879,7 +924,22 @@ function App() {
       const nextIndex = postDisasterDialogueIndex + 1
 
       setPostDisasterDialogueIndex(nextIndex)
-      addDialogueLog(postDisasterDialogues[nextIndex])
+      addDialogueLog(currentPostDisasterDialogues[nextIndex])
+      return
+    }
+
+    if (isTrueEnd) {
+      setTransitionText('-今回の振り返り-')
+      setIsTransitioning(true)
+
+      window.setTimeout(() => {
+        setIsUiHidden(false)
+        setIsLogOpen(false)
+        setScreen('result-review')
+        addDialogueLog(resultReviewDialogue)
+      }, 140)
+
+      finishTransition()
       return
     }
 
@@ -950,12 +1010,18 @@ function App() {
               : isBackpack
                 ? backpackBackground
                 : isPostDisaster
-                  ? afterDisasterBackground
+                  ? isFurnitureFastenerUsed
+                    ? fixedAfterDisasterBackground
+                    : afterDisasterBackground
                   : isBadEnd
                     ? badEndBackground
-                    : isNight
-                      ? nightRoomBackground
-                    : normalRoomBackground
+                    : isTrueEnd
+                      ? trueEndBackground
+                      : isNight
+                        ? nightRoomBackground
+                        : isFurnitureFastenerUsed
+                          ? fixedNormalRoomBackground
+                          : normalRoomBackground
           })`,
         }}
         aria-label={
@@ -971,15 +1037,21 @@ function App() {
                 ? '災害後の部屋'
                   : isBadEnd
                     ? 'バッドエンド'
-                    : isResultReview
-                      ? '今回の振り返り'
-                      : isRealLifeMessage
-                        ? '現実への呼びかけ'
-                        : isEndingActions
-                          ? '終了選択'
+                    : isTrueEnd
+                      ? 'トゥルーエンド'
+                      : isResultReview
+                        ? '今回の振り返り'
+                        : isRealLifeMessage
+                          ? '現実への呼びかけ'
+                          : isEndingActions
+                            ? '終了選択'
               : '主人公の部屋'
         }
       >
+        <div
+          className={`item-use-flash ${isItemUseFlashActive ? 'is-active' : ''}`}
+          aria-hidden="true"
+        />
         <div
           className={`scene-transition ${isTransitioning ? 'is-active' : ''}`}
           aria-hidden="true"
