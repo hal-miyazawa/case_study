@@ -8,6 +8,7 @@ import fixedNormalRoomBackground from './assets/backgrounds/固定器具使用�
 import normalRoomBackground from './assets/backgrounds/通常部屋画面.png'
 import nightRoomBackground from './assets/backgrounds/通常部屋画面夜.png'
 import phoneScreenBackground from './assets/backgrounds/スマホ画面.png'
+import phoneWhiteBackground from './assets/backgrounds/スマホ画面_白背景.png'
 import trueEndBackground from './assets/backgrounds/TrueEnd.png'
 import badEndBgm from './assets/bgm/BADエンド.mp3'
 import trueEndBgm from './assets/bgm/TRUEエンド.mp3'
@@ -50,6 +51,36 @@ type Dialogue = {
   text: string
 }
 
+type PhoneAppView = 'home' | 'contact' | 'news' | 'shelter'
+type ContactId = 'mother' | 'friend' | 'relative'
+type NewsArticleId = 'preparedness' | 'station-drill' | 'prediction-day' | 'weather'
+
+type ContactMessage = {
+  from: 'me' | 'them'
+  text: string
+}
+
+type ContactThread = {
+  id: ContactId
+  name: string
+  relation: string
+  preview: string
+  time: string
+  messages: ContactMessage[]
+  quickReplies: {
+    text: string
+    response: string
+  }[]
+}
+
+type NewsArticle = {
+  id: NewsArticleId
+  source: string
+  title: string
+  summary: string
+  body: string[]
+}
+
 // 商品ごとの購入数とリュック収納数を管理する型。
 // 0なら未購入/未収納、1以上なら購入済み/収納済みとして扱う。
 type ItemFlags = {
@@ -78,6 +109,120 @@ const roomMeasureActions = [
   'テレビを倒す',
   '薬をおろす',
   '本をおろす',
+]
+
+const contactThreads: ContactThread[] = [
+  {
+    id: 'mother',
+    name: '母',
+    relation: '家族',
+    preview: '備えだけ確認しておいてね。',
+    time: '10:12',
+    messages: [
+      { from: 'them', text: '最近変なニュースも見るし、少し心配だね。' },
+      { from: 'me', text: 'うん。水と食べ物は買っておくよ。' },
+      { from: 'them', text: '家具も倒れないようにしておいてね。' },
+      { from: 'me', text: 'わかった。部屋も確認しておく。' },
+    ],
+    quickReplies: [
+      {
+        text: '備蓄はもう少し確認しておく',
+        response: 'ありがとう。水と食べ物があるだけでも安心だね。',
+      },
+      {
+        text: '家具の固定もしておく',
+        response: 'それが一番大事かも。無理せず早めにやってね。',
+      },
+    ],
+  },
+  {
+    id: 'friend',
+    name: '友達',
+    relation: '友人',
+    preview: '今日いつも通り？',
+    time: '09:48',
+    messages: [
+      { from: 'them', text: '今日いつも通り？' },
+      { from: 'me', text: 'うん、でも少し防災用品見ておこうかな。' },
+      { from: 'them', text: 'えらい。自分も帰りに水買っておく。' },
+    ],
+    quickReplies: [
+      {
+        text: '帰りに店を見てくる',
+        response: 'いいね。売り切れる前に買っておいた方がよさそう。',
+      },
+      {
+        text: '避難場所も確認しておく',
+        response: 'それ大事。自分も帰ったら地図見ておく。',
+      },
+    ],
+  },
+  {
+    id: 'relative',
+    name: '親戚',
+    relation: '親戚',
+    preview: '何かあったら連絡して。',
+    time: '昨日',
+    messages: [
+      { from: 'them', text: 'そっちは最近どう？' },
+      { from: 'me', text: '普通だよ。少し防災の確認はしてる。' },
+      { from: 'them', text: '何かあったら連絡して。無理に動かないでね。' },
+      { from: 'me', text: 'ありがとう。避難場所も確認しておく。' },
+    ],
+    quickReplies: [
+      {
+        text: '家の中を片付けておく',
+        response: '足元に物がないだけでも安心だね。気をつけて。',
+      },
+      {
+        text: '家族にも共有しておく',
+        response: 'うん、連絡先だけでも決めておくと安心だよ。',
+      },
+    ],
+  },
+]
+
+const newsArticles: NewsArticle[] = [
+  {
+    id: 'preparedness',
+    source: '街の話題',
+    title: '駅前に新しいカフェがオープン',
+    summary: '地元食材を使ったメニューに注目。',
+    body: [
+      '駅前通りに新しいカフェがオープンし、朝から多くの人が訪れています。',
+      '店では地元の野菜や果物を使った軽食を用意しており、仕事帰りに立ち寄れる場所として期待されています。',
+    ],
+  },
+  {
+    id: 'station-drill',
+    source: '生活ニュース',
+    title: '商店街で週末セールを開催',
+    summary: '食品や日用品を中心に特価販売。',
+    body: [
+      '駅近くの商店街では、週末に合わせて食品や日用品のセールが行われます。',
+      '買い物客を呼び込むため、各店舗では限定商品やポイント還元も用意されています。',
+    ],
+  },
+  {
+    id: 'prediction-day',
+    source: '話題',
+    title: '「予言の日」がSNSで再注目',
+    summary: '古い本の一節をめぐり、静かな話題に。',
+    body: [
+      '古い本に書かれた一節が、SNSで再び注目されています。',
+      '公的機関から災害発生の発表はありませんが、防災を見直すきっかけにする声もあります。',
+    ],
+  },
+  {
+    id: 'weather',
+    source: '気象',
+    title: '週末は晴れ、気温差に注意',
+    summary: '大きな地震の公式発表はありません。',
+    body: [
+      '週末は広い範囲で晴れる見込みです。',
+      '朝晩と日中の気温差が大きくなるため、体調管理に注意してください。',
+    ],
+  },
 ]
 
 const bookWarningDialogues: Dialogue[] = [
@@ -423,6 +568,12 @@ const createInitialStoryFlags = (): StoryFlags => ({
 const createInitialRoomMeasureFlags = (): Record<string, boolean> =>
   Object.fromEntries(roomMeasureActions.map((action) => [action, false]))
 
+const createInitialContactReplyLog = (): Record<ContactId, ContactMessage[]> => ({
+  mother: [],
+  friend: [],
+  relative: [],
+})
+
 
 function App() {
   const [screen, setScreen] = useState<Screen>('start')
@@ -440,6 +591,16 @@ function App() {
   const [isUiHidden, setIsUiHidden] = useState(false)
   const [isLogOpen, setIsLogOpen] = useState(false)
   const [isPhoneOpen, setIsPhoneOpen] = useState(false)
+  const [phoneAppView, setPhoneAppView] = useState<PhoneAppView>('home')
+  const [selectedContactId, setSelectedContactId] = useState<ContactId | null>(null)
+  const [isContactReplyMenuOpen, setIsContactReplyMenuOpen] = useState(false)
+  const [pendingContactResponseId, setPendingContactResponseId] =
+    useState<ContactId | null>(null)
+  const [contactReplyLog, setContactReplyLog] =
+    useState<Record<ContactId, ContactMessage[]>>(createInitialContactReplyLog)
+  const [selectedNewsArticleId, setSelectedNewsArticleId] =
+    useState<NewsArticleId | null>(null)
+  const [isShelterDetailOpen, setIsShelterDetailOpen] = useState(false)
   const [isMeasuresOpen, setIsMeasuresOpen] = useState(false)
   const [selectedMeasure, setSelectedMeasure] = useState<string | null>(null)
   const [isQuitMessageVisible, setIsQuitMessageVisible] = useState(false)
@@ -499,6 +660,19 @@ function App() {
   const currentPostDisasterDialogues = isFurnitureFastenerUsed
     ? truePostDisasterDialogues
     : postDisasterDialogues
+  const selectedNewsArticle = newsArticles.find(
+    (article) => article.id === selectedNewsArticleId,
+  )
+  const selectedContact = contactThreads.find(
+    (contact) => contact.id === selectedContactId,
+  )
+  const selectedContactReplyLog = selectedContact
+    ? contactReplyLog[selectedContact.id]
+    : []
+  const selectedContactMessages = selectedContact
+    ? [...selectedContact.messages, ...selectedContactReplyLog]
+    : []
+  const hasSelectedContactReply = selectedContactReplyLog.length > 0
   const activeBgmSrc = isShop
     ? shopBgm
     : isPreparation || isBackpack || isRoomChangePreview
@@ -682,6 +856,11 @@ function App() {
     setIsUiHidden(false)
     setIsLogOpen(false)
     setIsPhoneOpen(false)
+    setPhoneAppView('home')
+    setSelectedContactId(null)
+    setIsContactReplyMenuOpen(false)
+    setSelectedNewsArticleId(null)
+    setIsShelterDetailOpen(false)
     setIsMeasuresOpen(false)
     setSelectedMeasure(null)
     setIsQuitMessageVisible(false)
@@ -852,16 +1031,55 @@ function App() {
   }
 
   // スマホ画面の各行動を実行済みflagとして保存する。
-  const handlePhoneAction = (flagName: keyof StoryFlags, logText: string) => {
+  const handlePhoneAction = (
+    flagName: keyof StoryFlags,
+    logText: string,
+    nextView: Exclude<PhoneAppView, 'home'>,
+  ) => {
     setStoryFlags((current) => ({
       ...current,
       [flagName]: true,
     }))
 
+    setPhoneAppView(nextView)
+    setSelectedContactId(null)
+    setIsContactReplyMenuOpen(false)
+    setSelectedNewsArticleId(null)
+    setIsShelterDetailOpen(false)
+
     addDialogueLog({
       speaker: 'ナレーション',
       text: logText,
     })
+  }
+
+  const handleContactQuickReply = (
+    contactId: ContactId,
+    reply: ContactThread['quickReplies'][number],
+  ) => {
+    if (contactReplyLog[contactId].length > 0 || pendingContactResponseId) {
+      return
+    }
+
+    setIsContactReplyMenuOpen(false)
+    setPendingContactResponseId(contactId)
+    setContactReplyLog((current) => ({
+      ...current,
+      [contactId]: [...current[contactId], { from: 'me', text: reply.text }],
+    }))
+
+    window.setTimeout(() => {
+      setContactReplyLog((current) => ({
+        ...current,
+        [contactId]: [
+          ...current[contactId],
+          { from: 'them', text: reply.response },
+        ],
+      }))
+      setPendingContactResponseId((current) =>
+        current === contactId ? null : current,
+      )
+    }, 520)
   }
 
   // 部屋対策の「はい」を押したときの処理。
@@ -1345,6 +1563,11 @@ function App() {
                 onBlur={() => setHoveredAction(null)}
                 onClick={() => {
                   setHoveredAction(null)
+                  setPhoneAppView('home')
+                  setSelectedContactId(null)
+                  setIsContactReplyMenuOpen(false)
+                  setSelectedNewsArticleId(null)
+                  setIsShelterDetailOpen(false)
                   setIsPhoneOpen(true)
                 }}
                 aria-label="スマホ"
@@ -1377,50 +1600,361 @@ function App() {
 
         {isPreparation && isPhoneOpen && !isUiHidden && (
           <div
-            className="phone-overlay"
+            className={`phone-overlay ${phoneAppView !== 'home' ? 'is-detail' : ''}`}
             aria-label="スマホ画面"
-            onClick={() => setIsPhoneOpen(false)}
+            onClick={() => {
+              setIsPhoneOpen(false)
+              setPhoneAppView('home')
+              setSelectedContactId(null)
+              setIsContactReplyMenuOpen(false)
+              setSelectedNewsArticleId(null)
+              setIsShelterDetailOpen(false)
+            }}
           >
             <div
-              className="phone-screen-shell"
+              className={`phone-screen-shell ${phoneAppView !== 'home' ? 'is-detail' : ''}`}
               onClick={(event) => event.stopPropagation()}
             >
-              <img src={phoneScreenBackground} alt="" />
-              <div className="phone-app-grid" aria-label="スマホアプリ">
-                <button
-                  type="button"
-                  onClick={() =>
-                    handlePhoneAction(
-                      'contactedFamily',
-                      '家族に連絡して、地震への備えを共有した。',
-                    )
-                  }
-                >
-                  連絡{storyFlags.contactedFamily ? '済み' : ''}
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    handlePhoneAction(
-                      'checkedNews',
-                      'ニュースで防災情報と最新の注意点を確認した。',
-                    )
-                  }
-                >
-                  ニュース{storyFlags.checkedNews ? '確認済み' : ''}
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    handlePhoneAction(
-                      'checkedShelter',
-                      '避難場所と避難経路を確認した。',
-                    )
-                  }
-                >
-                  避難場所{storyFlags.checkedShelter ? '確認済み' : ''}
-                </button>
-              </div>
+              <img
+                src={phoneAppView === 'home' ? phoneScreenBackground : phoneWhiteBackground}
+                alt=""
+              />
+              {phoneAppView === 'home' ? (
+                <div className="phone-app-grid" aria-label="スマホアプリ">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handlePhoneAction(
+                        'contactedFamily',
+                        '家族に連絡して、地震への備えを共有した。',
+                        'contact',
+                      )
+                    }
+                  >
+                    連絡{storyFlags.contactedFamily ? '済み' : ''}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handlePhoneAction(
+                        'checkedNews',
+                        'ニュースで防災情報と最新の注意点を確認した。',
+                        'news',
+                      )
+                    }
+                  >
+                    ニュース{storyFlags.checkedNews ? '確認済み' : ''}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handlePhoneAction(
+                        'checkedShelter',
+                        '避難場所と避難経路を確認した。',
+                        'shelter',
+                      )
+                    }
+                  >
+                    避難場所{storyFlags.checkedShelter ? '確認済み' : ''}
+                  </button>
+                </div>
+              ) : (
+                <div className="phone-detail-app">
+                  <button
+                    type="button"
+                    className="phone-detail-back"
+                    onClick={() => {
+                      if (phoneAppView === 'contact' && selectedContact) {
+                        setSelectedContactId(null)
+                        setIsContactReplyMenuOpen(false)
+                        return
+                      }
+
+                      if (phoneAppView === 'news' && selectedNewsArticle) {
+                        setSelectedNewsArticleId(null)
+                        return
+                      }
+
+                      if (phoneAppView === 'shelter' && isShelterDetailOpen) {
+                        setIsShelterDetailOpen(false)
+                        return
+                      }
+
+                      setPhoneAppView('home')
+                      setSelectedContactId(null)
+                      setSelectedNewsArticleId(null)
+                      setIsShelterDetailOpen(false)
+                    }}
+                  >
+                    戻る
+                  </button>
+                  {phoneAppView === 'contact' ? (
+                    <div className="phone-chat-app" aria-label="連絡">
+                      {selectedContact ? (
+                        <section className="phone-chat-thread">
+                          <header className="phone-chat-thread-header">
+                            <div className="chat-avatar" aria-hidden="true">
+                              {selectedContact.name.slice(0, 1)}
+                            </div>
+                            <div>
+                              <span>{selectedContact.relation}</span>
+                              <h2>{selectedContact.name}</h2>
+                            </div>
+                          </header>
+                          <div className="phone-chat-messages">
+                            {selectedContactMessages.map((message, index) => (
+                              <p
+                                key={`${selectedContact.id}-${index}`}
+                                className={`chat-bubble ${
+                                  message.from === 'me' ? 'is-me' : 'is-them'
+                                }`}
+                              >
+                                {message.text}
+                              </p>
+                            ))}
+                            {pendingContactResponseId === selectedContact.id && (
+                              <p className="chat-bubble is-them is-typing">入力中...</p>
+                            )}
+                          </div>
+                          <div className="phone-chat-compose">
+                            {isContactReplyMenuOpen && !hasSelectedContactReply && (
+                              <div className="chat-reply-options">
+                                {selectedContact.quickReplies.map((reply) => (
+                                  <button
+                                    type="button"
+                                    key={reply.text}
+                                    onClick={() =>
+                                      handleContactQuickReply(selectedContact.id, reply)
+                                    }
+                                  >
+                                    {reply.text}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              className="chat-compose-input"
+                              onClick={() =>
+                                setIsContactReplyMenuOpen((current) => !current)
+                              }
+                              disabled={
+                                hasSelectedContactReply ||
+                                pendingContactResponseId === selectedContact.id
+                              }
+                            >
+                              {pendingContactResponseId === selectedContact.id
+                                  ? '返信を待っています...'
+                                  : hasSelectedContactReply
+                                    ? '送信済み'
+                                  : 'メッセージを選択...'}
+                            </button>
+                          </div>
+                        </section>
+                      ) : (
+                        <>
+                          <header className="phone-chat-list-header">
+                            <span>Messages</span>
+                            <h2>連絡</h2>
+                          </header>
+                          <div className="phone-chat-list">
+                            {contactThreads.map((contact) => (
+                              <button
+                                type="button"
+                                key={contact.id}
+                                onClick={() => {
+                                  setSelectedContactId(contact.id)
+                                  setIsContactReplyMenuOpen(false)
+                                }}
+                              >
+                                <div className="chat-avatar" aria-hidden="true">
+                                  {contact.name.slice(0, 1)}
+                                </div>
+                                <div className="chat-list-body">
+                                  <div>
+                                    <h3>{contact.name}</h3>
+                                    <time>{contact.time}</time>
+                                  </div>
+                                  <p>{contact.preview}</p>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ) : phoneAppView === 'news' ? (
+                    <div className="phone-news-app" aria-label="ニュース">
+                      {selectedNewsArticle ? (
+                        <article className="phone-news-article">
+                          <span>{selectedNewsArticle.source}</span>
+                          <h2>{selectedNewsArticle.title}</h2>
+                          <div className="phone-news-image-placeholder" aria-hidden="true" />
+                          {selectedNewsArticle.body.map((paragraph) => (
+                            <p key={paragraph}>{paragraph}</p>
+                          ))}
+                        </article>
+                      ) : (
+                        <>
+                          <header className="phone-news-header">
+                            <span>Today</span>
+                            <h2>News</h2>
+                          </header>
+                          <button
+                            type="button"
+                            className="phone-news-feature"
+                            onClick={() => setSelectedNewsArticleId('preparedness')}
+                          >
+                            <span className="phone-news-source">
+                              {newsArticles[0].source}
+                            </span>
+                            <h3>{newsArticles[0].title}</h3>
+                            <p>{newsArticles[0].summary}</p>
+                          </button>
+                          <div className="phone-news-list">
+                            {newsArticles.slice(1).map((article) => (
+                              <button
+                                type="button"
+                                key={article.id}
+                                onClick={() => setSelectedNewsArticleId(article.id)}
+                              >
+                                <span>{article.source}</span>
+                                <h3>{article.title}</h3>
+                                <p>{article.summary}</p>
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ) : phoneAppView === 'shelter' ? (
+                    <div
+                      className={`phone-map-app ${isShelterDetailOpen ? 'has-detail' : ''}`}
+                      aria-label="避難場所マップ"
+                      onClick={() => {
+                        if (isShelterDetailOpen) {
+                          setIsShelterDetailOpen(false)
+                        }
+                      }}
+                    >
+                      <header className="phone-map-header">
+                        <span>避難場所</span>
+                        <h2>中央小学校</h2>
+                      </header>
+                      <div className="phone-map-canvas">
+                        <svg
+                          className="map-svg"
+                          viewBox="0 0 320 420"
+                          aria-hidden="true"
+                        >
+                          <path className="map-park" d="M18 22h118v92H18z" />
+                          <path className="map-park" d="M204 66h86v118h-86z" />
+                          <path className="map-park" d="M36 286h102v102H36z" />
+                          <path className="map-building" d="M172 242h62v72h-62z" />
+                          <path className="map-building" d="M92 148h68v48H92z" />
+                          <path className="map-local-road" d="M-10 58h350" />
+                          <path className="map-local-road" d="M-8 344h348" />
+                          <path className="map-local-road" d="M48 -10v440" />
+                          <path className="map-local-road" d="M150 -10v440" />
+                          <path className="map-local-road" d="M270 -10v440" />
+                          <path className="map-local-road" d="M-18 206 338 236" />
+                          <path className="map-road-wide" d="M-24 264 344 178" />
+                          <path className="map-road-wide" d="M92 -26 246 446" />
+                          <path className="map-road-wide" d="M210 -24 72 444" />
+                          <path className="map-road-wide" d="M316 -20 208 440" />
+                          <path className="map-road-wide" d="M-18 118 156 176 338 112" />
+                          <path className="map-road-line" d="M-24 264 344 178" />
+                          <path className="map-road-line" d="M92 -26 246 446" />
+                          <path className="map-road-line" d="M210 -24 72 444" />
+                          <path className="map-road-line" d="M316 -20 208 440" />
+                          <path className="map-road-line" d="M-18 118 156 176 338 112" />
+                          <polyline
+                            className="map-route-outline"
+                            points="78,323 124,245 188,232 236,178 254,140"
+                          />
+                          <polyline
+                            className="map-route-line"
+                            points="78,323 124,245 188,232 236,178 254,140"
+                          />
+                          <text className="map-place-label" x="38" y="76">青葉公園</text>
+                          <text className="map-place-label" x="213" y="104">市民広場</text>
+                          <text className="map-place-label" x="181" y="282">防災倉庫</text>
+                        </svg>
+                        <div className="map-pin map-pin-home">
+                          <span>自宅</span>
+                        </div>
+                        <button
+                          type="button"
+                          className="map-pin map-pin-shelter"
+                          onClick={() => setIsShelterDetailOpen(true)}
+                          aria-label="中央小学校の詳細を表示"
+                        >
+                          <span>避難場所</span>
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        className="phone-map-card"
+                        onClick={() => setIsShelterDetailOpen(true)}
+                        aria-expanded={isShelterDetailOpen}
+                      >
+                        <div>
+                          <span>最短ルート</span>
+                          <h3>中央小学校</h3>
+                          <p>徒歩8分 / 約620m</p>
+                        </div>
+                        <strong>確認済み</strong>
+                      </button>
+                      {isShelterDetailOpen && (
+                        <section
+                          className="phone-shelter-detail"
+                          aria-label="中央小学校の詳細"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <div className="shelter-detail-image" aria-hidden="true">
+                            学校画像
+                          </div>
+                          <div className="shelter-detail-header">
+                            <div>
+                              <span>指定避難所</span>
+                              <h3>中央小学校</h3>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setIsShelterDetailOpen(false)}
+                            >
+                              閉じる
+                            </button>
+                          </div>
+                          <dl className="shelter-detail-list">
+                            <div>
+                              <dt>距離</dt>
+                              <dd>徒歩8分 / 約620m</dd>
+                            </div>
+                            <div>
+                              <dt>開設状況</dt>
+                              <dd>災害時に開設</dd>
+                            </div>
+                            <div>
+                              <dt>住所</dt>
+                              <dd>青葉町3-12-1</dd>
+                            </div>
+                            <div>
+                              <dt>設備</dt>
+                              <dd>体育館・校庭・給水所</dd>
+                            </div>
+                          </dl>
+                        </section>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="phone-detail-content">
+                      <h2>連絡</h2>
+                      <p>家族に連絡しました。</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
