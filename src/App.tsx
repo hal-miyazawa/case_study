@@ -9,6 +9,15 @@ import normalRoomBackground from './assets/backgrounds/通常部屋画面.png'
 import nightRoomBackground from './assets/backgrounds/通常部屋画面夜.png'
 import phoneScreenBackground from './assets/backgrounds/スマホ画面.png'
 import trueEndBackground from './assets/backgrounds/TrueEnd.png'
+import badEndBgm from './assets/bgm/BADエンド.mp3'
+import trueEndBgm from './assets/bgm/TRUEエンド.mp3'
+import itemUseSound from './assets/bgm/アイテム使用音.mp3'
+import shopBgm from './assets/bgm/ショップ.mp3'
+import preparationBgm from './assets/bgm/対策フェーズ.mp3'
+import beforeQuakeBgm from './assets/bgm/地震_起こる前.mp3'
+import quakeBgm from './assets/bgm/地震発生.mp3'
+import normalRoomBgm from './assets/bgm/部屋_通常.mp3'
+import nightRoomBgm from './assets/bgm/部屋_夜.mp3'
 import measureIcon from './assets/icons/対策icon.png'
 import backpackIcon from './assets/icons/リュックicon.png'
 import phoneIcon from './assets/icons/スマホicon.png'
@@ -17,10 +26,12 @@ import './App.css'
 import ShopScreen, { type ItemId } from './screens/ShopScreen'
 
 type Screen =
+  | 'start'
   | 'book-warning'
   | 'room-intro'
   | 'preparation'
   | 'backpack'
+  | 'room-change-preview'
   | 'shop'
   | 'night'
   | 'day-start'
@@ -181,6 +192,30 @@ const dayStartDialoguesByDay: Record<0 | 1, Dialogue[]> = {
 const quakeArrivalDialogue: Dialogue = {
   speaker: '主人公',
   text: '……ついに、この時がやってきた。',
+}
+
+const createRoomChangePreviewDialogue = (
+  hasFurnitureFasteners: boolean,
+  hasWindowFilm: boolean,
+): Dialogue => {
+  if (hasFurnitureFasteners && hasWindowFilm) {
+    return {
+      speaker: 'ナレーション',
+      text: '家具と窓の対策ができた。部屋が少し安全になった。',
+    }
+  }
+
+  if (hasFurnitureFasteners) {
+    return {
+      speaker: 'ナレーション',
+      text: '家具を固定した。部屋の安全性が上がった。',
+    }
+  }
+
+  return {
+    speaker: 'ナレーション',
+    text: '窓にフィルムを貼った。ガラスが飛び散りにくくなった。。',
+  }
 }
 
 const postDisasterDialogues: Dialogue[] = [
@@ -390,7 +425,7 @@ const createInitialRoomMeasureFlags = (): Record<string, boolean> =>
 
 
 function App() {
-  const [screen, setScreen] = useState<Screen>('book-warning')
+  const [screen, setScreen] = useState<Screen>('start')
   const [currentDay, setCurrentDay] = useState<StoryDay>(2)
   const [dialogueIndex, setDialogueIndex] = useState(0)
   const [roomIntroIndex, setRoomIntroIndex] = useState(0)
@@ -409,6 +444,11 @@ function App() {
   const [selectedMeasure, setSelectedMeasure] = useState<string | null>(null)
   const [isQuitMessageVisible, setIsQuitMessageVisible] = useState(false)
   const [isItemUseFlashActive, setIsItemUseFlashActive] = useState(false)
+  const [isAudioEnabled, setIsAudioEnabled] = useState(false)
+  const [isRoomChangePreviewPending, setIsRoomChangePreviewPending] =
+    useState(false)
+  const [roomChangePreviewDialogue, setRoomChangePreviewDialogue] =
+    useState<Dialogue>(() => createRoomChangePreviewDialogue(false, false))
   const [dialogueLog, setDialogueLog] = useState<Dialogue[]>([
     bookWarningDialogues[0],
   ])
@@ -431,11 +471,15 @@ function App() {
   )
 
   const logBodyRef = useRef<HTMLDivElement | null>(null)
+  const bgmAudioRef = useRef<HTMLAudioElement | null>(null)
+  const currentBgmSrcRef = useRef<string | null>(null)
 
+  const isStart = screen === 'start'
   const isBookWarning = screen === 'book-warning'
   const isRoomIntro = screen === 'room-intro'
   const isPreparation = screen === 'preparation'
   const isBackpack = screen === 'backpack'
+  const isRoomChangePreview = screen === 'room-change-preview'
   const isShop = screen === 'shop'
   const isNight = screen === 'night'
   const isDayStart = screen === 'day-start'
@@ -451,9 +495,29 @@ function App() {
   const currentDayLabel = getDayLabel(currentDay)
   const preparationDialogue = getPreparationDialogue(currentDay)
   const isFurnitureFastenerUsed = itemFlags['furniture-fasteners'].packed > 0
+  const isWindowFilmUsed = itemFlags['window-film'].packed > 0
   const currentPostDisasterDialogues = isFurnitureFastenerUsed
     ? truePostDisasterDialogues
     : postDisasterDialogues
+  const activeBgmSrc = isShop
+    ? shopBgm
+    : isPreparation || isBackpack || isRoomChangePreview
+      ? preparationBgm
+      : isNight
+        ? nightRoomBgm
+        : isQuakeArrival
+          ? beforeQuakeBgm
+          : isPostDisaster
+            ? quakeBgm
+            : isTrueEnd
+              ? trueEndBgm
+              : isBadEnd
+                ? badEndBgm
+                : isAfterBadEnd
+                  ? isFurnitureFastenerUsed
+                    ? trueEndBgm
+                    : badEndBgm
+                  : normalRoomBgm
 
   // ShopScreenに渡す購入数データ。
   // itemFlagsから購入数だけを取り出して作る。
@@ -491,6 +555,7 @@ function App() {
     isNight ||
     isDayStart ||
     isQuakeArrival ||
+    isRoomChangePreview ||
     isPostDisaster ||
     isBadEnd ||
     isTrueEnd ||
@@ -506,16 +571,18 @@ function App() {
           ? dayStartDialoguesByDay[currentDay as 0 | 1][dayStartDialogueIndex]
           : isQuakeArrival
             ? quakeArrivalDialogue
-            : isPostDisaster
-              ? currentPostDisasterDialogues[postDisasterDialogueIndex]
-              : isBadEnd
-                ? badEndDialogue
-                : isTrueEnd
-                  ? trueEndDialogue
-                  : isResultReview
-                    ? resultReviewDialogue
-                    : isRealLifeMessage
-                      ? realLifeDialogue
+            : isRoomChangePreview
+              ? roomChangePreviewDialogue
+              : isPostDisaster
+                ? currentPostDisasterDialogues[postDisasterDialogueIndex]
+                : isBadEnd
+                  ? badEndDialogue
+                  : isTrueEnd
+                    ? trueEndDialogue
+                    : isResultReview
+                      ? resultReviewDialogue
+                      : isRealLifeMessage
+                        ? realLifeDialogue
       : hoveredAction === 'shop'
         ? {
             speaker: 'ナレーション',
@@ -600,7 +667,7 @@ function App() {
     postDisasterDialogueIndex === currentPostDisasterDialogues.length - 1
 
   const resetGame = () => {
-    setScreen('book-warning')
+    setScreen('start')
     setCurrentDay(2)
     setDialogueIndex(0)
     setRoomIntroIndex(0)
@@ -619,6 +686,8 @@ function App() {
     setSelectedMeasure(null)
     setIsQuitMessageVisible(false)
     setIsItemUseFlashActive(false)
+    setIsRoomChangePreviewPending(false)
+    setRoomChangePreviewDialogue(createRoomChangePreviewDialogue(false, false))
     setItemFlags(createInitialItemFlags())
     setPurchasedItemOrder([])
     setStoryFlags(createInitialStoryFlags())
@@ -626,11 +695,61 @@ function App() {
     setDialogueLog([bookWarningDialogues[0]])
   }
 
+  const handleStartGame = () => {
+    setIsAudioEnabled(true)
+    setScreen('book-warning')
+    addDialogueLog(bookWarningDialogues[0])
+  }
+
   useEffect(() => {
     if (isLogOpen && logBodyRef.current) {
       logBodyRef.current.scrollTop = logBodyRef.current.scrollHeight
     }
   }, [isLogOpen, dialogueLog])
+
+  useEffect(() => {
+    const enableAudio = () => setIsAudioEnabled(true)
+
+    window.addEventListener('pointerdown', enableAudio, { once: true })
+    window.addEventListener('keydown', enableAudio, { once: true })
+
+    return () => {
+      window.removeEventListener('pointerdown', enableAudio)
+      window.removeEventListener('keydown', enableAudio)
+    }
+  }, [])
+
+  useEffect(() => {
+    const audio = new Audio()
+    audio.loop = true
+    audio.volume = 0.45
+    bgmAudioRef.current = audio
+
+    return () => {
+      audio.pause()
+      bgmAudioRef.current = null
+      currentBgmSrcRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    const audio = bgmAudioRef.current
+
+    if (!audio || !isAudioEnabled) {
+      return
+    }
+
+    if (currentBgmSrcRef.current !== activeBgmSrc) {
+      audio.pause()
+      audio.src = activeBgmSrc
+      audio.currentTime = 0
+      currentBgmSrcRef.current = activeBgmSrc
+    }
+
+    void audio.play().catch(() => {
+      // Browser autoplay policy can still block playback until a trusted gesture.
+    })
+  }, [activeBgmSrc, isAudioEnabled])
 
   const addDialogueLog = (dialogue: Dialogue) => {
     setDialogueLog((current) => {
@@ -644,9 +763,20 @@ function App() {
     })
   }
 
+  const playItemUseSound = () => {
+    const audio = new Audio(itemUseSound)
+    audio.volume = 0.8
+
+    void audio.play().catch(() => {
+      // Sound effects are best-effort if the browser has not unlocked audio yet.
+    })
+  }
+
   // ショップで商品を購入したときの処理。
   // purchasedを+1して購入数として管理する。
   const handleBuyItem = (itemId: ItemId, itemName: string) => {
+    playItemUseSound()
+
     setPurchasedItemOrder((current) =>
       current.includes(itemId) ? current : [...current, itemId],
     )
@@ -683,6 +813,8 @@ function App() {
       return
     }
 
+    playItemUseSound()
+
     setItemFlags((current) => ({
       ...current,
       [selectedItem.id]: {
@@ -701,6 +833,19 @@ function App() {
       window.setTimeout(() => {
         setIsItemUseFlashActive(false)
       }, 560)
+    }
+
+    if (
+      selectedItem.id === 'furniture-fasteners' ||
+      selectedItem.id === 'window-film'
+    ) {
+      setRoomChangePreviewDialogue(
+        createRoomChangePreviewDialogue(
+          selectedItem.id === 'furniture-fasteners' || isFurnitureFastenerUsed,
+          selectedItem.id === 'window-film' || isWindowFilmUsed,
+        ),
+      )
+      setIsRoomChangePreviewPending(true)
     }
 
     setSelectedItem(null)
@@ -891,6 +1036,12 @@ function App() {
       return
     }
 
+    if (isRoomChangePreview) {
+      setScreen('preparation')
+      addDialogueLog(preparationDialogue)
+      return
+    }
+
     if (isQuakeArrival) {
       setTransitionText('-地震発生-')
       setIsTransitioning(true)
@@ -1007,8 +1158,14 @@ function App() {
           backgroundImage: `url(${
             isBookWarning
               ? bookWarningBackground
+              : isStart
+                ? normalRoomBackground
               : isBackpack
                 ? backpackBackground
+                : isRoomChangePreview
+                  ? isFurnitureFastenerUsed
+                    ? fixedNormalRoomBackground
+                    : normalRoomBackground
                 : isPostDisaster
                   ? isFurnitureFastenerUsed
                     ? fixedAfterDisasterBackground
@@ -1027,8 +1184,12 @@ function App() {
         aria-label={
           isBookWarning
             ? '予告本を見る場面'
+            : isStart
+              ? 'スタート画面'
             : isBackpack
               ? 'リュックを整理する場面'
+            : isRoomChangePreview
+              ? '対策後の部屋'
             : isNight
               ? '夜の場面'
               : isQuakeArrival
@@ -1048,6 +1209,15 @@ function App() {
               : '主人公の部屋'
         }
       >
+        {isStart && (
+          <section className="start-panel" aria-label="ゲーム開始">
+            <h1>災害への備え</h1>
+            <button type="button" onClick={handleStartGame}>
+              スタート
+            </button>
+          </section>
+        )}
+
         <div
           className={`item-use-flash ${isItemUseFlashActive ? 'is-active' : ''}`}
           aria-hidden="true"
@@ -1061,7 +1231,7 @@ function App() {
           )}
         </div>
 
-        {!shouldHideGlobalControls && (
+        {!isStart && !shouldHideGlobalControls && (
           <button
             type="button"
             className="ui-toggle"
@@ -1071,7 +1241,7 @@ function App() {
           </button>
         )}
 
-        {!isUiHidden && !shouldHideGlobalControls && (
+        {!isStart && !isUiHidden && !shouldHideGlobalControls && (
           <button
             type="button"
             className={`log-toggle ${isBackpack ? 'is-backpack' : ''}`}
@@ -1303,6 +1473,20 @@ function App() {
                 onClick={() => {
                   setHoveredItem(null)
                   setSelectedItem(null)
+                  if (isRoomChangePreviewPending) {
+                    const nextRoomChangePreviewDialogue =
+                      createRoomChangePreviewDialogue(
+                        isFurnitureFastenerUsed,
+                        isWindowFilmUsed,
+                      )
+
+                    setIsRoomChangePreviewPending(false)
+                    setRoomChangePreviewDialogue(nextRoomChangePreviewDialogue)
+                    addDialogueLog(nextRoomChangePreviewDialogue)
+                    setScreen('room-change-preview')
+                    return
+                  }
+
                   addDialogueLog(preparationDialogue)
                   setScreen('preparation')
                 }}
@@ -1499,7 +1683,7 @@ function App() {
           </section>
         )}
 
-        {!isEndingActions && !isResultReview && !isRealLifeMessage && (
+        {!isStart && !isEndingActions && !isResultReview && !isRealLifeMessage && (
           <button
             type="button"
             className={`message-box ${

@@ -103,6 +103,62 @@
   text-shadow: 0 3px 18px rgba(0, 0, 0, 0.75);
 }
 
+.start-panel {
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  left: 50%;
+  width: min(560px, 72vw);
+  padding: 42px 46px;
+  border: 4px solid var(--outer-border-color);
+  border-radius: 14px;
+  background: rgba(5, 5, 5, 0.78);
+  color: #fff;
+  text-align: center;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.34);
+  transform: translate(-50%, -50%);
+}
+
+.start-panel h1 {
+  margin: 0 0 18px;
+  font-size: 48px;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.start-panel p {
+  margin: 0 0 28px;
+  font-size: 24px;
+  line-height: 1.5;
+}
+
+.start-panel button {
+  min-width: 220px;
+  min-height: 72px;
+  padding: 16px 30px;
+  border: 3px solid var(--outer-border-color);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.13);
+  color: #fff;
+  font-size: 30px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+.start-panel button:hover,
+.start-panel button:focus-visible {
+  background: rgba(255, 255, 255, 0.24);
+  transform: translateY(-2px);
+}
+
+.start-panel button:focus-visible {
+  outline: 4px solid #f4c95d;
+  outline-offset: 4px;
+}
+
 .game-header {
   position: absolute;
   z-index: 3;
