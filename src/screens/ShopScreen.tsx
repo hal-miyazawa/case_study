@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import shopBackground from '../assets/backgrounds/ショップ画面.png'
+import shopBackground1 from '../assets/backgrounds/ショップ画面1.png'
+import shopBackground2 from '../assets/backgrounds/ショップ画面2.png'
+import shopBackground3 from '../assets/backgrounds/ショップ画面3.png'
 import itemIcon from '../assets/icons/item.png'
 import './Shop.css'
 
@@ -65,6 +68,13 @@ const categories: { id: Category; label: string }[] = [
   { id: 'safety', label: '防災グッズ' },
   { id: 'food', label: '食料' },
   { id: 'medical', label: '医療系' },
+]
+
+const shopBackgrounds = [
+  shopBackground,
+  shopBackground1,
+  shopBackground2,
+  shopBackground3,
 ]
 
 // カテゴリごとに分類した全18商品のショップ表示データ。
@@ -155,9 +165,9 @@ const items: Record<Category, ShopItem[]> = {
     },
     {
       id: 'medication',
-      name: '常備薬',
+      name: '頭痛薬',
       image: itemIcon,
-      description: '日常的に使用する常備薬です。',
+      description: '日常的に使用する頭痛薬です。',
     },
     {
       id: 'disinfectant',
@@ -202,6 +212,7 @@ export default function ShopScreen({
   // 購入確認中の商品。nullのときは購入確認モーダルを表示しない。
   const [selectedItem, setSelectedItem] = useState<ShopItem | null>(null)
   const [isSoldOutNoticeOpen, setIsSoldOutNoticeOpen] = useState(false)
+  const [backgroundIndex, setBackgroundIndex] = useState(0)
 
   // メッセージボックスに表示する説明文。
   const messageText = selectedItem
@@ -214,15 +225,19 @@ export default function ShopScreen({
   // 購入数そのものはApp.tsx側で更新する。
   const handleBuy = (item: ShopItem) => {
     onBuy(item.id, item.name)
+    setBackgroundIndex((current) => (current + 1) % shopBackgrounds.length)
     setSelectedItem(null)
   }
 
   return (
     <main
       className="game-screen shop-bg"
-      style={{ backgroundImage: `url(${shopBackground})` }}
+      style={{ backgroundImage: `url(${shopBackgrounds[backgroundIndex]})` }}
+      onClick={() =>
+        setBackgroundIndex((current) => (current + 1) % shopBackgrounds.length)
+      }
     >
-      <header className="game-header">
+      <header className="game-header" onClick={(event) => event.stopPropagation()}>
         <div className="game-header-days">{dayLabel}</div>
         <div className="game-header-title">ショップ</div>
         <button type="button" className="game-header-action" onClick={onBack}>
@@ -230,7 +245,11 @@ export default function ShopScreen({
         </button>
       </header>
 
-      <section className="shop-panel" aria-label="ショップの商品一覧">
+      <section
+        className="shop-panel"
+        aria-label="ショップの商品一覧"
+        onClick={(event) => event.stopPropagation()}
+      >
         <nav className="shop-category-tabs" aria-label="商品カテゴリ">
           {categories.map((c) => (
             <button
@@ -290,7 +309,12 @@ export default function ShopScreen({
       </section>
 
       {selectedItem && (
-        <div className="confirm-modal-overlay" role="dialog" aria-modal="true">
+        <div
+          className="confirm-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          onClick={(event) => event.stopPropagation()}
+        >
           <section className="confirm-modal" aria-label="商品購入確認">
             <p>{selectedItem.name}を購入しますか？</p>
             <div className="confirm-actions">
@@ -306,7 +330,12 @@ export default function ShopScreen({
       )}
 
       {isSoldOutNoticeOpen && (
-        <div className="confirm-modal-overlay" role="dialog" aria-modal="true">
+        <div
+          className="confirm-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          onClick={(event) => event.stopPropagation()}
+        >
           <section className="confirm-modal" aria-label="売り切れ">
             <p>この商品は売り切れです。</p>
             <div className="confirm-actions">
@@ -318,7 +347,7 @@ export default function ShopScreen({
         </div>
       )}
 
-      <div className="message-box">
+      <div className="message-box" onClick={(event) => event.stopPropagation()}>
         <span className="nameplate">ナレーション</span>
         <span className="dialogue-text">{messageText}</span>
       </div>
@@ -404,7 +433,7 @@ export default function ShopScreen({
 //   ],
 //   medical: [
 //     { id: 'first-aid-kit', name: '救急セット', image: 'img/item.png', description: '救急時に使用するセットです。' },
-//     { id: 'medication', name: '常備薬', image: 'img/item.png', description: '日常的に使用する常備薬です。' },
+//     { id: 'medication', name: '頭痛薬', image: 'img/item.png', description: '日常的に使用する頭痛薬です。' },
 //     { id: 'disinfectant', name: '消毒液・ウェットシート', image: 'img/item.png', description: '消毒や清掃に使用する製品です。' },
 //     { id: 'mask', name: 'マスク', image: 'img/item.png', description: '感染症予防に使用するマスクです。' },
 //     { id: 'thermometer', name: '体温計', image: 'img/item.png', description: '体温を測定するための体温計です。' },

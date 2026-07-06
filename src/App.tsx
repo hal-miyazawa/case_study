@@ -2,13 +2,26 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import badEndBackground from './assets/backgrounds/BadEnd.png'
 import afterDisasterBackground from './assets/backgrounds/災害後画面.png'
 import backpackBackground from './assets/backgrounds/リュック画面.png'
+import backpackEscapeBackground from './assets/backgrounds/リュック画面脱出.png'
 import bookWarningBackground from './assets/backgrounds/予告本画面.png'
+import escapeBackground from './assets/backgrounds/脱出画面.png'
 import fixedAfterDisasterBackground from './assets/backgrounds/固定器具使用災害後画面.png'
 import fixedNormalRoomBackground from './assets/backgrounds/固定器具使用通常部屋画面.png'
 import normalRoomBackground from './assets/backgrounds/通常部屋画面.png'
 import nightRoomBackground from './assets/backgrounds/通常部屋画面夜.png'
 import phoneScreenBackground from './assets/backgrounds/スマホ画面.png'
 import phoneWhiteBackground from './assets/backgrounds/スマホ画面_白背景.png'
+import shelterArrivalBackground from './assets/backgrounds/学校到着画面.png'
+import startBackground from './assets/backgrounds/開始画面.png'
+import bookNewsImage from './assets/backgrounds/news/book.png'
+import bookNewsThumbnail from './assets/backgrounds/news/book_i.png'
+import cafeNewsImage from './assets/backgrounds/news/cafe.png'
+import cafeNewsThumbnail from './assets/backgrounds/news/cafe_i.png'
+import saleNewsImage from './assets/backgrounds/news/sale.png'
+import saleNewsThumbnail from './assets/backgrounds/news/sale_i.png'
+import weatherNewsImage from './assets/backgrounds/news/weather.png'
+import weatherNewsThumbnail from './assets/backgrounds/news/weather_i.png'
+import shelterSchoolImage from './assets/backgrounds/shelter/school.png'
 import trueEndBackground from './assets/backgrounds/TrueEnd.png'
 import badEndBgm from './assets/bgm/BADエンド.mp3'
 import trueEndBgm from './assets/bgm/TRUEエンド.mp3'
@@ -38,6 +51,8 @@ type Screen =
   | 'day-start'
   | 'quake-arrival'
   | 'post-disaster'
+  | 'escape'
+  | 'shelter-arrival'
   | 'bad-end'
   | 'true-end'
   | 'result-review'
@@ -79,6 +94,9 @@ type NewsArticle = {
   title: string
   summary: string
   body: string[]
+  image?: string
+  imageAlt?: string
+  thumbnail: string
 }
 
 // 商品ごとの購入数とリュック収納数を管理する型。
@@ -188,6 +206,9 @@ const newsArticles: NewsArticle[] = [
     source: '街の話題',
     title: '駅前に新しいカフェがオープン',
     summary: '地元食材を使ったメニューに注目。',
+    image: cafeNewsImage,
+    imageAlt: '駅前にオープンしたカフェ',
+    thumbnail: cafeNewsThumbnail,
     body: [
       '駅前通りに新しいカフェがオープンし、朝から多くの人が訪れています。',
       '店では地元の野菜や果物を使った軽食を用意しており、仕事帰りに立ち寄れる場所として期待されています。',
@@ -198,6 +219,9 @@ const newsArticles: NewsArticle[] = [
     source: '生活ニュース',
     title: '商店街で週末セールを開催',
     summary: '食品や日用品を中心に特価販売。',
+    image: saleNewsImage,
+    imageAlt: '商店街の週末セール',
+    thumbnail: saleNewsThumbnail,
     body: [
       '駅近くの商店街では、週末に合わせて食品や日用品のセールが行われます。',
       '買い物客を呼び込むため、各店舗では限定商品やポイント還元も用意されています。',
@@ -208,6 +232,9 @@ const newsArticles: NewsArticle[] = [
     source: '話題',
     title: '「予言の日」がSNSで再注目',
     summary: '古い本の一節をめぐり、静かな話題に。',
+    image: bookNewsImage,
+    imageAlt: '予言の日について書かれた古い本',
+    thumbnail: bookNewsThumbnail,
     body: [
       '古い本に書かれた一節が、SNSで再び注目されています。',
       '公的機関から災害発生の発表はありませんが、防災を見直すきっかけにする声もあります。',
@@ -218,6 +245,9 @@ const newsArticles: NewsArticle[] = [
     source: '気象',
     title: '週末は晴れ、気温差に注意',
     summary: '大きな地震の公式発表はありません。',
+    image: weatherNewsImage,
+    imageAlt: '週末の晴れた空',
+    thumbnail: weatherNewsThumbnail,
     body: [
       '週末は広い範囲で晴れる見込みです。',
       '朝晩と日中の気温差が大きくなるため、体調管理に注意してください。',
@@ -419,6 +449,16 @@ const trueEndDialogue: Dialogue = {
   text: 'True End。家具固定の備えが命を守った。',
 }
 
+const escapeDialogue: Dialogue = {
+  speaker: 'ナレーション',
+  text: '家具は倒れず、出口までの道は残っている。安全を確認しながら外へ向かおう。',
+}
+
+const shelterArrivalDialogue: Dialogue = {
+  speaker: 'ナレーション',
+  text: '避難所にたどり着いた。',
+}
+
 const resultReviewDialogue: Dialogue = {
   speaker: 'ナレーション',
   text: '今回の結果を確認しました。次は、この物語を現実の備えに置き換えて考えてみましょう。',
@@ -497,7 +537,7 @@ const backpackItems: BackpackItem[] = [
   },
   {
     id: 'medication',
-    name: '常備薬',
+    name: '頭痛薬',
     description: '体調不良や持病がある場合に欠かせない備え。',
   },
   {
@@ -601,6 +641,8 @@ function App() {
   const [selectedNewsArticleId, setSelectedNewsArticleId] =
     useState<NewsArticleId | null>(null)
   const [isShelterDetailOpen, setIsShelterDetailOpen] = useState(false)
+  const [backpackReturnScreen, setBackpackReturnScreen] =
+    useState<'preparation' | 'escape'>('preparation')
   const [isMeasuresOpen, setIsMeasuresOpen] = useState(false)
   const [selectedMeasure, setSelectedMeasure] = useState<string | null>(null)
   const [isQuitMessageVisible, setIsQuitMessageVisible] = useState(false)
@@ -646,6 +688,8 @@ function App() {
   const isDayStart = screen === 'day-start'
   const isQuakeArrival = screen === 'quake-arrival'
   const isPostDisaster = screen === 'post-disaster'
+  const isEscape = screen === 'escape'
+  const isShelterArrival = screen === 'shelter-arrival'
   const isBadEnd = screen === 'bad-end'
   const isTrueEnd = screen === 'true-end'
   const isResultReview = screen === 'result-review'
@@ -677,6 +721,10 @@ function App() {
     ? shopBgm
     : isPreparation || isBackpack || isRoomChangePreview
       ? preparationBgm
+    : isEscape
+      ? quakeBgm
+      : isShelterArrival
+        ? trueEndBgm
       : isNight
         ? nightRoomBgm
         : isQuakeArrival
@@ -731,6 +779,7 @@ function App() {
     isQuakeArrival ||
     isRoomChangePreview ||
     isPostDisaster ||
+    isShelterArrival ||
     isBadEnd ||
     isTrueEnd ||
     isResultReview ||
@@ -749,14 +798,16 @@ function App() {
               ? roomChangePreviewDialogue
               : isPostDisaster
                 ? currentPostDisasterDialogues[postDisasterDialogueIndex]
-                : isBadEnd
-                  ? badEndDialogue
-                  : isTrueEnd
-                    ? trueEndDialogue
-                    : isResultReview
-                      ? resultReviewDialogue
-                      : isRealLifeMessage
-                        ? realLifeDialogue
+                : isShelterArrival
+                  ? shelterArrivalDialogue
+                  : isBadEnd
+                    ? badEndDialogue
+                    : isTrueEnd
+                      ? trueEndDialogue
+                      : isResultReview
+                        ? resultReviewDialogue
+                        : isRealLifeMessage
+                          ? realLifeDialogue
       : hoveredAction === 'shop'
         ? {
             speaker: 'ナレーション',
@@ -823,7 +874,9 @@ function App() {
                           speaker: 'ナレーション',
                           text: '非常用リュックに入れる準備をしよう。',
                         }
-                : preparationDialogue
+                : isEscape
+                  ? escapeDialogue
+                  : preparationDialogue
   const isLastBookDialogue =
     isBookWarning && dialogueIndex === bookWarningDialogues.length - 1
   const isLastRoomIntroDialogue =
@@ -861,6 +914,7 @@ function App() {
     setIsContactReplyMenuOpen(false)
     setSelectedNewsArticleId(null)
     setIsShelterDetailOpen(false)
+    setBackpackReturnScreen('preparation')
     setIsMeasuresOpen(false)
     setSelectedMeasure(null)
     setIsQuitMessageVisible(false)
@@ -1151,6 +1205,44 @@ function App() {
     addDialogueLog(getPreparationDialogue(0))
   }
 
+  const jumpToEscapePart = () => {
+    setScreen('escape')
+    setHoveredAction(null)
+    setHoveredItem(null)
+    setSelectedItem(null)
+    setIsUiHidden(false)
+    setIsLogOpen(false)
+    setIsPhoneOpen(false)
+    setPhoneAppView('home')
+    setSelectedContactId(null)
+    setIsContactReplyMenuOpen(false)
+    setSelectedNewsArticleId(null)
+    setIsShelterDetailOpen(false)
+    setBackpackReturnScreen('escape')
+    setIsMeasuresOpen(false)
+    setSelectedMeasure(null)
+    addDialogueLog(escapeDialogue)
+  }
+
+  const handleFinishEscape = () => {
+    if (isTransitioning) {
+      return
+    }
+
+    setTransitionText('-避難所到着-')
+    setIsTransitioning(true)
+    setHoveredAction(null)
+    setIsPhoneOpen(false)
+    setIsLogOpen(false)
+
+    window.setTimeout(() => {
+      setScreen('shelter-arrival')
+      addDialogueLog(shelterArrivalDialogue)
+    }, 140)
+
+    finishTransition()
+  }
+
   const handleNextDialogue = () => {
     if (isTransitioning) {
       return
@@ -1275,14 +1367,14 @@ function App() {
     }
 
     if (isPostDisaster && isLastPostDisasterDialogue) {
-      setTransitionText(isFurnitureFastenerUsed ? '-True End-' : '-Bad End-')
+      setTransitionText(isFurnitureFastenerUsed ? '-脱出開始-' : '-Bad End-')
       setIsTransitioning(true)
 
       window.setTimeout(() => {
         setIsLogOpen(false)
-        setScreen(isFurnitureFastenerUsed ? 'true-end' : 'bad-end')
+        setScreen(isFurnitureFastenerUsed ? 'escape' : 'bad-end')
         setPostDisasterDialogueIndex(0)
-        addDialogueLog(isFurnitureFastenerUsed ? trueEndDialogue : badEndDialogue)
+        addDialogueLog(isFurnitureFastenerUsed ? escapeDialogue : badEndDialogue)
       }, 140)
 
       finishTransition()
@@ -1294,6 +1386,20 @@ function App() {
 
       setPostDisasterDialogueIndex(nextIndex)
       addDialogueLog(currentPostDisasterDialogues[nextIndex])
+      return
+    }
+
+    if (isShelterArrival) {
+      setTransitionText('-True End-')
+      setIsTransitioning(true)
+
+      window.setTimeout(() => {
+        setIsLogOpen(false)
+        setScreen('true-end')
+        addDialogueLog(trueEndDialogue)
+      }, 140)
+
+      finishTransition()
       return
     }
 
@@ -1369,7 +1475,9 @@ function App() {
   return (
     <main className="game-screen">
       <section
-        className={`scene ${isNight ? 'is-night' : ''} ${
+        className={`scene ${isStart ? 'is-start' : ''} ${
+          isNight ? 'is-night' : ''
+        } ${
           isAfterBadEnd ? 'is-ending-panel' : ''
         }`}
         style={{
@@ -1377,9 +1485,11 @@ function App() {
             isBookWarning
               ? bookWarningBackground
               : isStart
-                ? normalRoomBackground
+                ? startBackground
               : isBackpack
-                ? backpackBackground
+                ? backpackReturnScreen === 'escape'
+                  ? backpackEscapeBackground
+                  : backpackBackground
                 : isRoomChangePreview
                   ? isFurnitureFastenerUsed
                     ? fixedNormalRoomBackground
@@ -1388,6 +1498,10 @@ function App() {
                   ? isFurnitureFastenerUsed
                     ? fixedAfterDisasterBackground
                     : afterDisasterBackground
+                  : isEscape
+                    ? escapeBackground
+                  : isShelterArrival
+                    ? shelterArrivalBackground
                   : isBadEnd
                     ? badEndBackground
                     : isTrueEnd
@@ -1414,6 +1528,10 @@ function App() {
                 ? '地震発生直前の部屋'
               : isPostDisaster
                 ? '災害後の部屋'
+                : isEscape
+                  ? '脱出する場面'
+                : isShelterArrival
+                  ? '避難所に到着した場面'
                   : isBadEnd
                     ? 'バッドエンド'
                     : isTrueEnd
@@ -1428,12 +1546,12 @@ function App() {
         }
       >
         {isStart && (
-          <section className="start-panel" aria-label="ゲーム開始">
-            <h1>災害への備え</h1>
-            <button type="button" onClick={handleStartGame}>
-              スタート
-            </button>
-          </section>
+          <button
+            type="button"
+            className="start-hotspot"
+            onClick={handleStartGame}
+            aria-label="はじめる"
+          />
         )}
 
         <div
@@ -1495,6 +1613,13 @@ function App() {
                 対策フェーズ中
               </div>
               <div className="game-header-actions">
+                <button
+                  type="button"
+                  className="debug-skip-button"
+                  onClick={jumpToEscapePart}
+                >
+                  脱出パートへ
+                </button>
                 <button
                   type="button"
                   className="debug-skip-button"
@@ -1584,6 +1709,7 @@ function App() {
                 onBlur={() => setHoveredAction(null)}
                 onClick={() => {
                   setHoveredAction(null)
+                  setBackpackReturnScreen('preparation')
                   addDialogueLog({
                     speaker: 'ナレーション',
                     text: '持っているものを確認して、非常用リュックに入れる準備をしよう。',
@@ -1598,7 +1724,63 @@ function App() {
           </>
         )}
 
-        {isPreparation && isPhoneOpen && !isUiHidden && (
+        {isEscape && !isUiHidden && (
+          <>
+            <button
+              type="button"
+              className="escape-finish-button"
+              onClick={handleFinishEscape}
+            >
+              終わる
+            </button>
+            <div className="escape-action-icons" aria-label="脱出行動">
+              <button
+                type="button"
+                className="action-icon-button escape-icon-phone"
+                onMouseEnter={() => setHoveredAction('phone')}
+                onMouseLeave={() => setHoveredAction(null)}
+                onFocus={() => setHoveredAction('phone')}
+                onBlur={() => setHoveredAction(null)}
+                onClick={() => {
+                  setHoveredAction(null)
+                  setPhoneAppView('home')
+                  setSelectedContactId(null)
+                  setIsContactReplyMenuOpen(false)
+                  setSelectedNewsArticleId(null)
+                  setIsShelterDetailOpen(false)
+                  setIsPhoneOpen(true)
+                }}
+                aria-label="スマホ"
+              >
+                <img src={phoneIcon} alt="" />
+                <span>スマホ</span>
+              </button>
+              <button
+                type="button"
+                className="action-icon-button escape-icon-backpack"
+                onMouseEnter={() => setHoveredAction('backpack')}
+                onMouseLeave={() => setHoveredAction(null)}
+                onFocus={() => setHoveredAction('backpack')}
+                onBlur={() => setHoveredAction(null)}
+                onClick={() => {
+                  setHoveredAction(null)
+                  setBackpackReturnScreen('escape')
+                  addDialogueLog({
+                    speaker: 'ナレーション',
+                    text: '脱出に必要なものを確認しよう。',
+                  })
+                  setScreen('backpack')
+                }}
+                aria-label="リュック"
+              >
+                <img src={backpackIcon} alt="" />
+                <span>リュック</span>
+              </button>
+            </div>
+          </>
+        )}
+
+        {(isPreparation || isEscape) && isPhoneOpen && !isUiHidden && (
           <div
             className={`phone-overlay ${phoneAppView !== 'home' ? 'is-detail' : ''}`}
             aria-label="スマホ画面"
@@ -1789,7 +1971,15 @@ function App() {
                         <article className="phone-news-article">
                           <span>{selectedNewsArticle.source}</span>
                           <h2>{selectedNewsArticle.title}</h2>
-                          <div className="phone-news-image-placeholder" aria-hidden="true" />
+                          {selectedNewsArticle.image ? (
+                            <img
+                              className="phone-news-article-image"
+                              src={selectedNewsArticle.image}
+                              alt={selectedNewsArticle.imageAlt ?? ''}
+                            />
+                          ) : (
+                            <div className="phone-news-image-placeholder" aria-hidden="true" />
+                          )}
                           {selectedNewsArticle.body.map((paragraph) => (
                             <p key={paragraph}>{paragraph}</p>
                           ))}
@@ -1805,11 +1995,18 @@ function App() {
                             className="phone-news-feature"
                             onClick={() => setSelectedNewsArticleId('preparedness')}
                           >
-                            <span className="phone-news-source">
-                              {newsArticles[0].source}
-                            </span>
-                            <h3>{newsArticles[0].title}</h3>
-                            <p>{newsArticles[0].summary}</p>
+                            <img
+                              className="phone-news-thumbnail"
+                              src={newsArticles[0].thumbnail}
+                              alt=""
+                            />
+                            <div className="phone-news-card-body">
+                              <span className="phone-news-source">
+                                {newsArticles[0].source}
+                              </span>
+                              <h3>{newsArticles[0].title}</h3>
+                              <p>{newsArticles[0].summary}</p>
+                            </div>
                           </button>
                           <div className="phone-news-list">
                             {newsArticles.slice(1).map((article) => (
@@ -1818,9 +2015,16 @@ function App() {
                                 key={article.id}
                                 onClick={() => setSelectedNewsArticleId(article.id)}
                               >
-                                <span>{article.source}</span>
-                                <h3>{article.title}</h3>
-                                <p>{article.summary}</p>
+                                <img
+                                  className="phone-news-thumbnail"
+                                  src={article.thumbnail}
+                                  alt=""
+                                />
+                                <div className="phone-news-card-body">
+                                  <span>{article.source}</span>
+                                  <h3>{article.title}</h3>
+                                  <p>{article.summary}</p>
+                                </div>
                               </button>
                             ))}
                           </div>
@@ -1911,9 +2115,11 @@ function App() {
                           aria-label="中央小学校の詳細"
                           onClick={(event) => event.stopPropagation()}
                         >
-                          <div className="shelter-detail-image" aria-hidden="true">
-                            学校画像
-                          </div>
+                          <img
+                            className="shelter-detail-image"
+                            src={shelterSchoolImage}
+                            alt="中央小学校の外観"
+                          />
                           <div className="shelter-detail-header">
                             <div>
                               <span>指定避難所</span>
@@ -1998,37 +2204,58 @@ function App() {
 
         {isBackpack && !isUiHidden && (
           <>
-            <header className="game-header">
-              <div className="game-header-days">{currentDayLabel}</div>
-              <div className="game-header-title">リュック</div>
-              <button
-                type="button"
-                className="game-header-action"
-                onClick={() => {
-                  setHoveredItem(null)
-                  setSelectedItem(null)
-                  if (isRoomChangePreviewPending) {
-                    const nextRoomChangePreviewDialogue =
-                      createRoomChangePreviewDialogue(
-                        isFurnitureFastenerUsed,
-                        isWindowFilmUsed,
-                      )
+            {backpackReturnScreen !== 'escape' && (
+              <header className="game-header">
+                <div className="game-header-days">{currentDayLabel}</div>
+                <div className="game-header-title">リュック</div>
+                <button
+                  type="button"
+                  className="game-header-action"
+                  onClick={() => {
+                    setHoveredItem(null)
+                    setSelectedItem(null)
+                    if (isRoomChangePreviewPending) {
+                      const nextRoomChangePreviewDialogue =
+                        createRoomChangePreviewDialogue(
+                          isFurnitureFastenerUsed,
+                          isWindowFilmUsed,
+                        )
 
-                    setIsRoomChangePreviewPending(false)
-                    setRoomChangePreviewDialogue(nextRoomChangePreviewDialogue)
-                    addDialogueLog(nextRoomChangePreviewDialogue)
-                    setScreen('room-change-preview')
-                    return
-                  }
+                      setIsRoomChangePreviewPending(false)
+                      setRoomChangePreviewDialogue(nextRoomChangePreviewDialogue)
+                      addDialogueLog(nextRoomChangePreviewDialogue)
+                      setScreen('room-change-preview')
+                      return
+                    }
 
-                  addDialogueLog(preparationDialogue)
-                  setScreen('preparation')
-                }}
-              >
-                対策に戻る
-              </button>
-            </header>
-            <aside className="inventory-panel" aria-label="現在持っているアイテム">
+                    addDialogueLog(preparationDialogue)
+                    setScreen('preparation')
+                  }}
+                >
+                  対策に戻る
+                </button>
+              </header>
+            )}
+            <aside
+              className={`inventory-panel ${
+                backpackReturnScreen === 'escape' ? 'is-escape-backpack' : ''
+              }`}
+              aria-label="現在持っているアイテム"
+            >
+              {backpackReturnScreen === 'escape' && (
+                <button
+                  type="button"
+                  className="inventory-return-button"
+                  onClick={() => {
+                    setHoveredItem(null)
+                    setSelectedItem(null)
+                    addDialogueLog(escapeDialogue)
+                    setScreen('escape')
+                  }}
+                >
+                  脱出に戻る
+                </button>
+              )}
               <h2>持っているアイテム</h2>
               <ul>
                 {ownedBackpackItems.length === 0 ? (
