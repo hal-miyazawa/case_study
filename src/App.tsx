@@ -5,6 +5,8 @@ import backpackBackground from './assets/backgrounds/リュック画面.png'
 import backpackEscapeBackground from './assets/backgrounds/リュック画面脱出.png'
 import bookWarningBackground from './assets/backgrounds/予告本画面.png'
 import escapeBackground from './assets/backgrounds/脱出画面.png'
+import escapeBackground2 from './assets/backgrounds/脱出画面2.png'
+import escapeBackground3 from './assets/backgrounds/脱出画面3.png'
 import fixedAfterDisasterBackground from './assets/backgrounds/固定器具使用災害後画面.png'
 import fixedNormalRoomBackground from './assets/backgrounds/固定器具使用通常部屋画面.png'
 import normalRoomBackground from './assets/backgrounds/通常部屋画面.png'
@@ -12,6 +14,7 @@ import nightRoomBackground from './assets/backgrounds/通常部屋画面夜.png'
 import phoneScreenBackground from './assets/backgrounds/スマホ画面.png'
 import phoneWhiteBackground from './assets/backgrounds/スマホ画面_白背景.png'
 import shelterArrivalBackground from './assets/backgrounds/学校到着画面.png'
+import safeRoadBackground from './assets/backgrounds/安全道.png'
 import startBackground from './assets/backgrounds/開始画面.png'
 import bookNewsImage from './assets/backgrounds/news/book.png'
 import bookNewsThumbnail from './assets/backgrounds/news/book_i.png'
@@ -27,9 +30,15 @@ import badEndBgm from './assets/bgm/BADエンド.mp3'
 import trueEndBgm from './assets/bgm/TRUEエンド.mp3'
 import itemUseSound from './assets/bgm/アイテム使用音.mp3'
 import shopBgm from './assets/bgm/ショップ.mp3'
+import shopPurchaseSound from './assets/bgm/ショップ購入音.mp3'
+import textBoxClickSound from './assets/bgm/テキストボックスクリック音.mp3'
+import modalSound from './assets/bgm/モーダル音.mp3'
 import preparationBgm from './assets/bgm/対策フェーズ.mp3'
 import beforeQuakeBgm from './assets/bgm/地震_起こる前.mp3'
 import quakeBgm from './assets/bgm/地震発生.mp3'
+import groundRumbleSound from './assets/bgm/地響き.mp3'
+import escapeBgm from './assets/bgm/脱出パートBGM.mp3'
+import escapeBgm2 from './assets/bgm/脱出パートBGM2.mp3'
 import normalRoomBgm from './assets/bgm/部屋_通常.mp3'
 import nightRoomBgm from './assets/bgm/部屋_夜.mp3'
 import measureIcon from './assets/icons/対策icon.png'
@@ -451,8 +460,24 @@ const trueEndDialogue: Dialogue = {
 
 const escapeDialogue: Dialogue = {
   speaker: 'ナレーション',
-  text: '家具は倒れず、出口までの道は残っている。安全を確認しながら外へ向かおう。',
+  text: '外へ出た。まずはスマホで避難場所を確認しよう。',
 }
+
+const escapeDialogues: Dialogue[] = [
+  escapeDialogue,
+  {
+    speaker: 'ナレーション',
+    text: '道が入り組んできた。もう一度スマホで避難場所を確認しよう。',
+  },
+  {
+    speaker: 'ナレーション',
+    text: '避難所に近づいてきた。現在地を確認しよう。',
+  },
+  {
+    speaker: 'ナレーション',
+    text: '安全な通りに出た。最後に避難所までの道を確認しよう。',
+  },
+]
 
 const shelterArrivalDialogue: Dialogue = {
   speaker: 'ナレーション',
@@ -623,6 +648,7 @@ function App() {
   const [nightDialogueIndex, setNightDialogueIndex] = useState(0)
   const [dayStartDialogueIndex, setDayStartDialogueIndex] = useState(0)
   const [postDisasterDialogueIndex, setPostDisasterDialogueIndex] = useState(0)
+  const [escapeStep, setEscapeStep] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [transitionText, setTransitionText] = useState<string | null>(null)
   const [hoveredAction, setHoveredAction] = useState<string | null>(null)
@@ -647,7 +673,9 @@ function App() {
   const [selectedMeasure, setSelectedMeasure] = useState<string | null>(null)
   const [isQuitMessageVisible, setIsQuitMessageVisible] = useState(false)
   const [isItemUseFlashActive, setIsItemUseFlashActive] = useState(false)
+  const [isScreenShaking, setIsScreenShaking] = useState(false)
   const [isAudioEnabled, setIsAudioEnabled] = useState(false)
+  const [hasCheckedEscapeShelter, setHasCheckedEscapeShelter] = useState(false)
   const [isRoomChangePreviewPending, setIsRoomChangePreviewPending] =
     useState(false)
   const [roomChangePreviewDialogue, setRoomChangePreviewDialogue] =
@@ -676,6 +704,7 @@ function App() {
   const logBodyRef = useRef<HTMLDivElement | null>(null)
   const bgmAudioRef = useRef<HTMLAudioElement | null>(null)
   const currentBgmSrcRef = useRef<string | null>(null)
+  const groundRumbleAudioRef = useRef<HTMLAudioElement | null>(null)
 
   const isStart = screen === 'start'
   const isBookWarning = screen === 'book-warning'
@@ -701,6 +730,13 @@ function App() {
   const preparationDialogue = getPreparationDialogue(currentDay)
   const isFurnitureFastenerUsed = itemFlags['furniture-fasteners'].packed > 0
   const isWindowFilmUsed = itemFlags['window-film'].packed > 0
+  const isMobileBatteryPurchased = itemFlags['power-bank'].purchased > 0
+  const escapeBackgrounds = [
+    escapeBackground,
+    escapeBackground2,
+    escapeBackground3,
+    safeRoadBackground,
+  ]
   const currentPostDisasterDialogues = isFurnitureFastenerUsed
     ? truePostDisasterDialogues
     : postDisasterDialogues
@@ -722,7 +758,9 @@ function App() {
     : isPreparation || isBackpack || isRoomChangePreview
       ? preparationBgm
     : isEscape
-      ? quakeBgm
+      ? isMobileBatteryPurchased
+        ? escapeBgm
+        : escapeBgm2
       : isShelterArrival
         ? trueEndBgm
       : isNight
@@ -875,7 +913,7 @@ function App() {
                           text: '非常用リュックに入れる準備をしよう。',
                         }
                 : isEscape
-                  ? escapeDialogue
+                  ? escapeDialogues[escapeStep] ?? escapeDialogue
                   : preparationDialogue
   const isLastBookDialogue =
     isBookWarning && dialogueIndex === bookWarningDialogues.length - 1
@@ -894,6 +932,8 @@ function App() {
     postDisasterDialogueIndex === currentPostDisasterDialogues.length - 1
 
   const resetGame = () => {
+    groundRumbleAudioRef.current?.pause()
+    groundRumbleAudioRef.current = null
     setScreen('start')
     setCurrentDay(2)
     setDialogueIndex(0)
@@ -901,6 +941,7 @@ function App() {
     setNightDialogueIndex(0)
     setDayStartDialogueIndex(0)
     setPostDisasterDialogueIndex(0)
+    setEscapeStep(0)
     setIsTransitioning(false)
     setTransitionText(null)
     setHoveredAction(null)
@@ -919,6 +960,8 @@ function App() {
     setSelectedMeasure(null)
     setIsQuitMessageVisible(false)
     setIsItemUseFlashActive(false)
+    setIsScreenShaking(false)
+    setHasCheckedEscapeShelter(false)
     setIsRoomChangePreviewPending(false)
     setRoomChangePreviewDialogue(createRoomChangePreviewDialogue(false, false))
     setItemFlags(createInitialItemFlags())
@@ -984,6 +1027,20 @@ function App() {
     })
   }, [activeBgmSrc, isAudioEnabled])
 
+  useEffect(() => {
+    if (isPostDisaster) {
+      return
+    }
+
+    if (groundRumbleAudioRef.current) {
+      groundRumbleAudioRef.current.pause()
+      groundRumbleAudioRef.current.currentTime = 0
+      groundRumbleAudioRef.current = null
+    }
+
+    setIsScreenShaking(false)
+  }, [isPostDisaster])
+
   const addDialogueLog = (dialogue: Dialogue) => {
     setDialogueLog((current) => {
       const latest = current.at(-1)
@@ -996,19 +1053,46 @@ function App() {
     })
   }
 
-  const playItemUseSound = () => {
-    const audio = new Audio(itemUseSound)
-    audio.volume = 0.8
+  const playSound = (src: string, volume: number) => {
+    const audio = new Audio(src)
+    audio.volume = volume
 
     void audio.play().catch(() => {
       // Sound effects are best-effort if the browser has not unlocked audio yet.
     })
+
+    return audio
+  }
+
+  const playItemUseSound = () => {
+    playSound(itemUseSound, 0.8)
+  }
+
+  const playShopPurchaseSound = () => {
+    playSound(shopPurchaseSound, 0.42)
+  }
+
+  const playTextBoxClickSound = () => {
+    playSound(textBoxClickSound, 0.26)
+  }
+
+  const playModalSound = () => {
+    playSound(modalSound, 0.34)
+  }
+
+  const playGroundRumbleSound = () => {
+    groundRumbleAudioRef.current?.pause()
+
+    const audio = playSound(groundRumbleSound, 0.46)
+    groundRumbleAudioRef.current = audio
+
+    return audio
   }
 
   // ショップで商品を購入したときの処理。
   // purchasedを+1して購入数として管理する。
   const handleBuyItem = (itemId: ItemId, itemName: string) => {
-    playItemUseSound()
+    playShopPurchaseSound()
 
     setPurchasedItemOrder((current) =>
       current.includes(itemId) ? current : [...current, itemId],
@@ -1090,6 +1174,10 @@ function App() {
     logText: string,
     nextView: Exclude<PhoneAppView, 'home'>,
   ) => {
+    if (isEscape && flagName === 'checkedShelter') {
+      setHasCheckedEscapeShelter(true)
+    }
+
     setStoryFlags((current) => ({
       ...current,
       [flagName]: true,
@@ -1105,6 +1193,58 @@ function App() {
       speaker: 'ナレーション',
       text: logText,
     })
+  }
+
+  const handleOpenPhone = () => {
+    setHoveredAction(null)
+    setPhoneAppView('home')
+    setSelectedContactId(null)
+    setIsContactReplyMenuOpen(false)
+    setSelectedNewsArticleId(null)
+    setIsShelterDetailOpen(false)
+    setHasCheckedEscapeShelter(false)
+    setIsPhoneOpen(true)
+  }
+
+  const advanceEscapeStep = () => {
+    if (isTransitioning) {
+      return
+    }
+
+    const nextStep = escapeStep + 1
+
+    setTransitionText(null)
+    setIsTransitioning(true)
+    setHoveredAction(null)
+
+    window.setTimeout(() => {
+      if (nextStep >= escapeDialogues.length) {
+        setScreen('shelter-arrival')
+        addDialogueLog(shelterArrivalDialogue)
+        return
+      }
+
+      setEscapeStep(nextStep)
+      addDialogueLog(escapeDialogues[nextStep])
+    }, 140)
+
+    finishTransition()
+  }
+
+  const handleClosePhone = () => {
+    const shouldAdvanceEscape = isEscape && hasCheckedEscapeShelter
+
+    setIsPhoneOpen(false)
+    setPhoneAppView('home')
+    setSelectedContactId(null)
+    setIsContactReplyMenuOpen(false)
+    setSelectedNewsArticleId(null)
+    setIsShelterDetailOpen(false)
+    setHasCheckedEscapeShelter(false)
+
+    if (shouldAdvanceEscape) {
+      advanceEscapeStep()
+    }
   }
 
   const handleContactQuickReply = (
@@ -1207,6 +1347,7 @@ function App() {
 
   const jumpToEscapePart = () => {
     setScreen('escape')
+    setEscapeStep(0)
     setHoveredAction(null)
     setHoveredItem(null)
     setSelectedItem(null)
@@ -1218,29 +1359,11 @@ function App() {
     setIsContactReplyMenuOpen(false)
     setSelectedNewsArticleId(null)
     setIsShelterDetailOpen(false)
+    setHasCheckedEscapeShelter(false)
     setBackpackReturnScreen('escape')
     setIsMeasuresOpen(false)
     setSelectedMeasure(null)
     addDialogueLog(escapeDialogue)
-  }
-
-  const handleFinishEscape = () => {
-    if (isTransitioning) {
-      return
-    }
-
-    setTransitionText('-避難所到着-')
-    setIsTransitioning(true)
-    setHoveredAction(null)
-    setIsPhoneOpen(false)
-    setIsLogOpen(false)
-
-    window.setTimeout(() => {
-      setScreen('shelter-arrival')
-      addDialogueLog(shelterArrivalDialogue)
-    }, 140)
-
-    finishTransition()
   }
 
   const handleNextDialogue = () => {
@@ -1358,8 +1481,31 @@ function App() {
 
       window.setTimeout(() => {
         setScreen('post-disaster')
+        setIsScreenShaking(true)
         setPostDisasterDialogueIndex(0)
         addDialogueLog(currentPostDisasterDialogues[0])
+        const rumbleAudio = playGroundRumbleSound()
+        const stopShaking = () => {
+          setIsScreenShaking(false)
+        }
+
+        rumbleAudio.addEventListener('ended', stopShaking, { once: true })
+        rumbleAudio.addEventListener('error', stopShaking, { once: true })
+        rumbleAudio.addEventListener(
+          'loadedmetadata',
+          () => {
+            if (Number.isFinite(rumbleAudio.duration)) {
+              window.setTimeout(stopShaking, rumbleAudio.duration * 1000 + 240)
+            }
+          },
+          { once: true },
+        )
+
+        window.setTimeout(() => {
+          if (rumbleAudio.paused && !rumbleAudio.ended) {
+            stopShaking()
+          }
+        }, 320)
       }, 140)
 
       finishTransition()
@@ -1373,6 +1519,8 @@ function App() {
       window.setTimeout(() => {
         setIsLogOpen(false)
         setScreen(isFurnitureFastenerUsed ? 'escape' : 'bad-end')
+        setEscapeStep(0)
+        setHasCheckedEscapeShelter(false)
         setPostDisasterDialogueIndex(0)
         addDialogueLog(isFurnitureFastenerUsed ? escapeDialogue : badEndDialogue)
       }, 140)
@@ -1412,6 +1560,7 @@ function App() {
         setIsLogOpen(false)
         setScreen('result-review')
         addDialogueLog(resultReviewDialogue)
+        playModalSound()
       }, 140)
 
       finishTransition()
@@ -1427,6 +1576,7 @@ function App() {
         setIsLogOpen(false)
         setScreen('result-review')
         addDialogueLog(resultReviewDialogue)
+        playModalSound()
       }, 140)
 
       finishTransition()
@@ -1440,6 +1590,7 @@ function App() {
       window.setTimeout(() => {
         setScreen('real-life-message')
         addDialogueLog(realLifeDialogue)
+        playModalSound()
       }, 140)
 
       finishTransition()
@@ -1456,6 +1607,14 @@ function App() {
 
       finishTransition()
     }
+  }
+
+  const handleMessageBoxClick = () => {
+    if (!isTransitioning) {
+      playTextBoxClickSound()
+    }
+
+    handleNextDialogue()
   }
 
   if (isShop) {
@@ -1479,6 +1638,8 @@ function App() {
           isNight ? 'is-night' : ''
         } ${
           isAfterBadEnd ? 'is-ending-panel' : ''
+        } ${
+          isScreenShaking && isPostDisaster ? 'is-shaking' : ''
         }`}
         style={{
           backgroundImage: `url(${
@@ -1498,8 +1659,8 @@ function App() {
                   ? isFurnitureFastenerUsed
                     ? fixedAfterDisasterBackground
                     : afterDisasterBackground
-                  : isEscape
-                    ? escapeBackground
+                : isEscape
+                    ? escapeBackgrounds[escapeStep] ?? escapeBackground
                   : isShelterArrival
                     ? shelterArrivalBackground
                   : isBadEnd
@@ -1686,15 +1847,7 @@ function App() {
                 onMouseLeave={() => setHoveredAction(null)}
                 onFocus={() => setHoveredAction('phone')}
                 onBlur={() => setHoveredAction(null)}
-                onClick={() => {
-                  setHoveredAction(null)
-                  setPhoneAppView('home')
-                  setSelectedContactId(null)
-                  setIsContactReplyMenuOpen(false)
-                  setSelectedNewsArticleId(null)
-                  setIsShelterDetailOpen(false)
-                  setIsPhoneOpen(true)
-                }}
+                onClick={handleOpenPhone}
                 aria-label="スマホ"
               >
                 <img src={phoneIcon} alt="" />
@@ -1726,13 +1879,6 @@ function App() {
 
         {isEscape && !isUiHidden && (
           <>
-            <button
-              type="button"
-              className="escape-finish-button"
-              onClick={handleFinishEscape}
-            >
-              終わる
-            </button>
             <div className="escape-action-icons" aria-label="脱出行動">
               <button
                 type="button"
@@ -1741,15 +1887,7 @@ function App() {
                 onMouseLeave={() => setHoveredAction(null)}
                 onFocus={() => setHoveredAction('phone')}
                 onBlur={() => setHoveredAction(null)}
-                onClick={() => {
-                  setHoveredAction(null)
-                  setPhoneAppView('home')
-                  setSelectedContactId(null)
-                  setIsContactReplyMenuOpen(false)
-                  setSelectedNewsArticleId(null)
-                  setIsShelterDetailOpen(false)
-                  setIsPhoneOpen(true)
-                }}
+                onClick={handleOpenPhone}
                 aria-label="スマホ"
               >
                 <img src={phoneIcon} alt="" />
@@ -1784,14 +1922,7 @@ function App() {
           <div
             className={`phone-overlay ${phoneAppView !== 'home' ? 'is-detail' : ''}`}
             aria-label="スマホ画面"
-            onClick={() => {
-              setIsPhoneOpen(false)
-              setPhoneAppView('home')
-              setSelectedContactId(null)
-              setIsContactReplyMenuOpen(false)
-              setSelectedNewsArticleId(null)
-              setIsShelterDetailOpen(false)
-            }}
+            onClick={handleClosePhone}
           >
             <div
               className={`phone-screen-shell ${phoneAppView !== 'home' ? 'is-detail' : ''}`}
@@ -2450,7 +2581,7 @@ function App() {
             className={`message-box ${
               isUiHidden && !shouldHideGlobalControls ? 'is-hidden' : ''
             }`}
-            onClick={handleNextDialogue}
+            onClick={handleMessageBoxClick}
             aria-label={canAdvanceDialogue ? '次のセリフへ進む' : '自由行動を選ぶ'}
           >
             <span className="nameplate">{currentDialogue.speaker}</span>

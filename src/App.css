@@ -57,6 +57,61 @@
     linear-gradient(0deg, rgba(0, 0, 0, 0.58), transparent 48%);
 }
 
+.scene.is-shaking {
+  animation: quake-background-shake 0.34s cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite;
+}
+
+.scene.is-shaking .message-box {
+  animation: quake-ui-shake 0.78s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes quake-background-shake {
+  0%,
+  100% {
+    background-position: center;
+  }
+
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    background-position: calc(50% - 34px) center;
+  }
+
+  20%,
+  40%,
+  60%,
+  80% {
+    background-position: calc(50% + 34px) center;
+  }
+}
+
+@keyframes quake-ui-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  18%,
+  54%,
+  90% {
+    transform: translateX(-12px);
+  }
+
+  36%,
+  72% {
+    transform: translateX(12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene.is-shaking,
+  .scene.is-shaking .message-box {
+    animation: none;
+  }
+}
+
 .scene-transition {
   position: absolute;
   z-index: 5;
@@ -110,9 +165,9 @@
 .start-hotspot {
   position: absolute;
   z-index: 3;
-  top: 66.8%;
+  top: 65.8%;
   left: 50%;
-  width: min(31vw, 520px);
+  width: min(34vw, 520px);
   height: min(12vh, 132px);
   padding: 0;
   border: 0;
@@ -1744,6 +1799,20 @@ button.map-pin:focus-visible {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  animation: modal-float-in 0.42s cubic-bezier(0.18, 0.9, 0.24, 1) both;
+  will-change: opacity, transform;
+}
+
+@keyframes modal-float-in {
+  0% {
+    opacity: 0;
+    transform: translateY(28px) scale(0.985);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .result-review-panel h2,
