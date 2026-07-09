@@ -12,6 +12,8 @@ export type EscapeDialogue = {
 export type EscapeStep = {
   id: EscapeStepId
   background: string
+  nightBackground: string
+  lightBackground: string
   dialogue: EscapeDialogue
   requiredAction: EscapeRequiredAction
   next: EscapeNextStep

@@ -176,6 +176,33 @@
   z-index: 7;
 }
 
+.scene.is-escape-backpack-guide .escape-action-icons {
+  z-index: 6;
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(52, 52, 52, 0.32);
+  box-shadow: none;
+  backdrop-filter: grayscale(1) brightness(0.7);
+}
+
+.scene.is-escape-backpack-guide .ui-toggle,
+.scene.is-escape-backpack-guide .log-toggle,
+.scene.is-escape-backpack-guide .escape-finish-button,
+.scene.is-escape-backpack-guide .escape-icon-phone {
+  pointer-events: none;
+  filter: grayscale(1) brightness(0.36);
+  opacity: 0.36;
+}
+
+.scene.is-escape-backpack-guide .escape-icon-backpack {
+  z-index: 7;
+  filter: none;
+  opacity: 1;
+}
+
+.scene.is-escape-backpack-guide .message-box {
+  z-index: 7;
+}
+
 .escape-choice-shade {
   position: absolute;
   z-index: 4;
@@ -562,6 +589,160 @@
   outline-offset: 4px;
 }
 
+.escape-progress-panel {
+  position: absolute;
+  z-index: 4;
+  top: 2.8vh;
+  left: 50%;
+  display: grid;
+  grid-template-columns: auto minmax(220px, 34vw);
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  border-radius: 999px;
+  background: rgba(5, 5, 5, 0.58);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 800;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.68);
+  transform: translateX(-50%);
+}
+
+.escape-progress-track {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.48);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.escape-progress-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.escape-progress-marker {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  background: rgba(10, 10, 10, 0.94);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.34);
+  transform: translate(-50%, -50%);
+}
+
+.escape-supply-status {
+  position: absolute;
+  z-index: 4;
+  right: calc(4vw + 177px + 96px);
+  top: calc((100svh - var(--control-bottom) - var(--control-height) - 414px) / 2 + 58px);
+  display: grid;
+  gap: 12px;
+  width: 92px;
+  pointer-events: none;
+}
+
+.escape-supply-status div {
+  display: grid;
+  grid-template-rows: auto 74px;
+  align-items: center;
+  justify-items: center;
+  gap: 7px;
+  min-width: 70px;
+  padding: 11px 10px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  background: rgba(34, 34, 34, 0.58);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.78);
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.36),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.escape-vertical-gauge {
+  position: relative;
+  width: 14px;
+  height: 82px;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.24);
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.34),
+    0 4px 14px rgba(0, 0, 0, 0.38);
+}
+
+.escape-vertical-gauge span {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, #4fd9ff 0%, #0077ff 100%);
+  transition: height 0.24s ease;
+}
+
+.escape-supply-status div:nth-child(2) .escape-vertical-gauge span {
+  background: linear-gradient(180deg, #74ff86 0%, #00b83e 100%);
+}
+
+.escape-supply-status .is-empty {
+  color: rgba(255, 255, 255, 0.88);
+  border-color: rgba(255, 255, 255, 0.58);
+  background: rgba(5, 5, 5, 0.9);
+}
+
+.escape-supply-status .is-empty .escape-vertical-gauge {
+  border-color: rgba(255, 255, 255, 0.58);
+  background: rgba(80, 20, 20, 0.32);
+}
+
+.escape-light-toggle {
+  pointer-events: auto;
+  width: 100%;
+  min-height: 38px;
+  border: 2px solid rgba(255, 255, 255, 0.64);
+  border-radius: 8px;
+  background: rgba(8, 8, 8, 0.68);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.78);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.36);
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.escape-light-toggle:hover,
+.escape-light-toggle:focus-visible {
+  border-color: rgba(255, 255, 255, 0.9);
+  background: rgba(20, 20, 20, 0.86);
+  transform: translateY(-1px);
+}
+
+.escape-light-toggle.is-on {
+  border-color: rgba(255, 236, 172, 0.9);
+  background: rgba(70, 58, 20, 0.8);
+}
+
+.escape-light-toggle:focus-visible {
+  outline: 4px solid #f4c95d;
+  outline-offset: 3px;
+}
+
 .action-icon-button {
   position: relative;
   width: 177px;
@@ -677,6 +858,10 @@
   height: 140%;
   max-width: none;
   transform: translate(-50%, -50%);
+}
+
+.phone-screen-shell.is-detail.is-tall-detail-frame > img {
+  height: 110%;
 }
 
 .phone-app-grid {

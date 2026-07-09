@@ -10,7 +10,15 @@ import normalRoomBackground from './assets/backgrounds/通常部屋画面.png'
 import nightRoomBackground from './assets/backgrounds/通常部屋画面夜.png'
 import phoneScreenBackground from './assets/backgrounds/スマホ画面.png'
 import phoneWhiteBackground from './assets/backgrounds/スマホ画面_白背景.png'
+import phoneBatteryChargingBackground from './assets/backgrounds/phone/バッテリー切れ充電画面.png'
+import phoneBatteryDeadBackground from './assets/backgrounds/phone/バッテリー切れ画面.png'
+import phoneFinalDayWhiteBackground from './assets/backgrounds/phone/スマホ最終日白画面.png'
+import phoneLowBatteryBackground from './assets/backgrounds/phone/スマホ画面少な目.png'
+import phoneLowBatteryWhiteBackground from './assets/backgrounds/phone/スマホ画面少な目白画面.png'
+import phoneMobileChargingBackground from './assets/backgrounds/phone/スマホモバ充使用中.png'
+import phoneMobileChargingWhiteBackground from './assets/backgrounds/phone/スマホモバ充使用中白画面.png'
 import shelterArrivalBackground from './assets/backgrounds/学校到着画面.png'
+import shelterArrivalNightBackground from './assets/backgrounds/学校到着画面_夜.png'
 import startBackground from './assets/backgrounds/開始画面.png'
 import bookNewsImage from './assets/backgrounds/news/book.png'
 import bookNewsThumbnail from './assets/backgrounds/news/book_i.png'
@@ -74,7 +82,14 @@ type Dialogue = {
   text: string
 }
 
-type PreparationGuideTarget = 'message' | 'shop' | 'backpack' | 'phone' | 'finish'
+type PreparationGuideTarget =
+  | 'message'
+  | 'shop'
+  | 'backpack'
+  | 'phone'
+  | 'finish'
+  | 'furniture'
+type PreparationGuideKind = 'initial' | 'final'
 
 type PreparationGuideStep = {
   target: PreparationGuideTarget
@@ -115,6 +130,9 @@ type NewsArticle = {
 }
 
 type EscapeRouteChoiceStage = 'warning' | 'prompt' | 'choices' | null
+type EscapePhonePowerState = 'normal' | 'dead' | 'charging' | 'charged'
+type EscapePhonePromptStage = 'dead' | 'backpack' | 'charging-wait' | 'panic' | null
+type EscapeOutcome = 'true' | 'bad'
 
 // 商品ごとの購入数とリュック収納数を管理する型。
 // 0なら未購入/未収納、1以上なら購入済み/収納済みとして扱う。
@@ -576,6 +594,13 @@ const backpackItems: BackpackItem[] = [
   },
 ]
 
+const escapeProgressPercentByStep = {
+  start: 0,
+  'route-check': 25,
+  'near-shelter': 50,
+  'safe-road': 75,
+} as const
+
 // 全アイテムのflag初期値を作る関数。
 // 購入数と収納数をnumberで持つため、後から複数購入にも対応できる。
 const createInitialItemFlags = (): Record<ItemId, ItemFlags> => ({
@@ -673,6 +698,16 @@ const preparationGuideSteps: PreparationGuideStep[] = [
   },
 ]
 
+const finalPreparationGuideSteps: PreparationGuideStep[] = [
+  {
+    target: 'furniture',
+    dialogue: {
+      speaker: 'ガイド',
+      text: '今日、地震が起こるかもしれません。最後に部屋の対策をしておきましょう。',
+    },
+  },
+]
+
 const escapeRouteWarningDialogue: Dialogue = {
   speaker: 'ナレーション',
   text: '最短は右の道だけど、危なそうだな。',
@@ -681,6 +716,26 @@ const escapeRouteWarningDialogue: Dialogue = {
 const escapeRoutePromptDialogue: Dialogue = {
   speaker: 'ナレーション',
   text: 'どっちに進もうか。',
+}
+
+const escapePhoneDeadDialogue: Dialogue = {
+  speaker: '主人公',
+  text: '電源が切れてしまっている。どうしよう。',
+}
+
+const escapeBackpackPromptDialogue: Dialogue = {
+  speaker: 'ナレーション',
+  text: 'リュックに使えるアイテムがあるかもしれない。',
+}
+
+const escapePhoneChargingWaitDialogue: Dialogue = {
+  speaker: '主人公',
+  text: 'スマホを充電中だ。少し待とう。',
+}
+
+const escapePhonePanicDialogue: Dialogue = {
+  speaker: '主人公',
+  text: '焦り状態。',
 }
 
 
@@ -719,13 +774,23 @@ function App() {
   const [isScreenShaking, setIsScreenShaking] = useState(false)
   const [isAudioEnabled, setIsAudioEnabled] = useState(false)
   const [hasCheckedEscapeShelter, setHasCheckedEscapeShelter] = useState(false)
+  const [escapeOutcome, setEscapeOutcome] = useState<EscapeOutcome>('true')
+  const [isEscapeLightOn, setIsEscapeLightOn] = useState(false)
   const [escapeRouteChoiceStage, setEscapeRouteChoiceStage] =
     useState<EscapeRouteChoiceStage>(null)
+  const [escapePhonePowerState, setEscapePhonePowerState] =
+    useState<EscapePhonePowerState>('normal')
+  const [escapePhonePromptStage, setEscapePhonePromptStage] =
+    useState<EscapePhonePromptStage>(null)
   const [hoveredEscapeRouteChoice, setHoveredEscapeRouteChoice] = useState<
     'right' | 'left' | null
   >(null)
   const [isPreparationGuideActive, setIsPreparationGuideActive] = useState(false)
   const [hasSeenPreparationGuide, setHasSeenPreparationGuide] = useState(false)
+  const [hasSeenFinalPreparationGuide, setHasSeenFinalPreparationGuide] =
+    useState(false)
+  const [preparationGuideKind, setPreparationGuideKind] =
+    useState<PreparationGuideKind>('initial')
   const [preparationGuideIndex, setPreparationGuideIndex] = useState(0)
   const [isRoomChangePreviewPending, setIsRoomChangePreviewPending] =
     useState(false)
@@ -787,8 +852,15 @@ function App() {
   const isFurnitureFastenerUsed = itemFlags['furniture-fasteners'].packed > 0
   const isWindowFilmUsed = itemFlags['window-film'].packed > 0
   const isMobileBatteryPurchased = itemFlags['power-bank'].purchased > 0
+  const isMobileBatteryUsable =
+    itemFlags['power-bank'].purchased > 0 && itemFlags['power-bank'].packed === 0
+  const activePreparationGuideSteps =
+    preparationGuideKind === 'final'
+      ? finalPreparationGuideSteps
+      : preparationGuideSteps
   const currentPreparationGuideStep =
-    preparationGuideSteps[preparationGuideIndex] ?? preparationGuideSteps[0]
+    activePreparationGuideSteps[preparationGuideIndex] ??
+    activePreparationGuideSteps[0]
   const isPreparationGuideTarget = (target: PreparationGuideTarget) =>
     isPreparationGuideActive && currentPreparationGuideStep.target === target
   const currentPostDisasterDialogues = isFurnitureFastenerUsed
@@ -863,13 +935,60 @@ function App() {
 
   // 部屋対策の達成数。今後のエンディング判定や結果画面に使える。
   const completedRoomMeasureCount = Object.values(roomMeasureFlags).filter(Boolean).length
+  const escapeProgressPercent =
+    escapeOutcome === 'bad'
+      ? 60 + ((escapeProgressPercentByStep[currentEscapeStep.id] ?? 0) / 100) * 30
+      : escapeProgressPercentByStep[currentEscapeStep.id] ?? 0
+  const isEscapeNightBackground = escapeProgressPercent >= 60
+  const currentEscapeBackground =
+    isEscapeNightBackground
+      ? isEscapeLightOn
+        ? currentEscapeStep.lightBackground
+        : currentEscapeStep.nightBackground
+      : currentEscapeStep.background
+  const escapeWaterLevel = 1
+  const escapeFoodLevel = 1
   const isEscapeRouteChoiceOpen = escapeRouteChoiceStage !== null
   const canAdvanceEscapeRouteText =
     escapeRouteChoiceStage === 'warning' || escapeRouteChoiceStage === 'prompt'
   const areEscapeRouteChoicesVisible = escapeRouteChoiceStage === 'choices'
+  const canAdvanceEscapePhonePrompt =
+    escapePhonePromptStage === 'dead' ||
+    escapePhonePromptStage === 'charging-wait' ||
+    escapePhonePromptStage === 'panic'
+  const isEscapeBackpackPromptActive = escapePhonePromptStage === 'backpack'
+  const isEscapePhoneBlocked =
+    isEscape &&
+    (escapePhonePowerState === 'dead' || escapePhonePowerState === 'charging')
+  const isPhoneDetailLayout = phoneAppView !== 'home' && !isEscapePhoneBlocked
+  const usesPhoneDetailShell = isPhoneDetailLayout || isEscapePhoneBlocked
+  const escapePhoneHomeFrameImage =
+    escapePhonePowerState === 'charged'
+      ? phoneMobileChargingBackground
+      : phoneLowBatteryBackground
+  const escapePhoneDetailFrameImage =
+    escapePhonePowerState === 'charged'
+      ? phoneMobileChargingWhiteBackground
+      : phoneLowBatteryWhiteBackground
+  const preparationPhoneDetailFrameImage =
+    currentDay === 0 ? phoneFinalDayWhiteBackground : phoneWhiteBackground
+  const usesTallPhoneDetailFrame =
+    usesPhoneDetailShell && (isEscapePhoneBlocked || isEscape || currentDay === 0)
+  const phoneFrameImage = isEscapePhoneBlocked
+    ? escapePhonePowerState === 'charging'
+      ? phoneBatteryChargingBackground
+      : phoneBatteryDeadBackground
+    : isEscape
+      ? phoneAppView === 'home'
+        ? escapePhoneHomeFrameImage
+        : escapePhoneDetailFrameImage
+      : phoneAppView === 'home'
+        ? phoneScreenBackground
+        : preparationPhoneDetailFrameImage
   const canAdvanceDialogue =
     isPreparationGuideActive ||
     canAdvanceEscapeRouteText ||
+    canAdvanceEscapePhonePrompt ||
     isBookWarning ||
     isRoomIntro ||
     isNight ||
@@ -974,13 +1093,21 @@ function App() {
                           speaker: 'ナレーション',
                           text: '非常用リュックに入れる準備をしよう。',
                         }
-                : escapeRouteChoiceStage === 'warning'
-                  ? escapeRouteWarningDialogue
-                  : escapeRouteChoiceStage === 'prompt'
-                    ? escapeRoutePromptDialogue
-                  : isEscape
-                    ? currentEscapeStep.dialogue
-                  : preparationDialogue
+                : escapePhonePromptStage === 'dead'
+                  ? escapePhoneDeadDialogue
+                  : escapePhonePromptStage === 'backpack'
+                    ? escapeBackpackPromptDialogue
+                    : escapePhonePromptStage === 'charging-wait'
+                      ? escapePhoneChargingWaitDialogue
+                      : escapePhonePromptStage === 'panic'
+                        ? escapePhonePanicDialogue
+                        : escapeRouteChoiceStage === 'warning'
+                          ? escapeRouteWarningDialogue
+                          : escapeRouteChoiceStage === 'prompt'
+                            ? escapeRoutePromptDialogue
+                            : isEscape
+                              ? currentEscapeStep.dialogue
+                              : preparationDialogue
   const isLastBookDialogue =
     isBookWarning && dialogueIndex === bookWarningDialogues.length - 1
   const isLastRoomIntroDialogue =
@@ -1029,9 +1156,13 @@ function App() {
     setIsScreenShaking(false)
     setHasCheckedEscapeShelter(false)
     setEscapeRouteChoiceStage(null)
+    setEscapePhonePowerState('normal')
+    setEscapePhonePromptStage(null)
     setHoveredEscapeRouteChoice(null)
     setIsPreparationGuideActive(false)
     setHasSeenPreparationGuide(false)
+    setHasSeenFinalPreparationGuide(false)
+    setPreparationGuideKind('initial')
     setPreparationGuideIndex(0)
     setIsRoomChangePreviewPending(false)
     setRoomChangePreviewDialogue(createRoomChangePreviewDialogue(false, false))
@@ -1115,17 +1246,31 @@ function App() {
   useEffect(() => {
     if (
       !isPreparation ||
-      hasSeenPreparationGuide ||
       isPreparationGuideActive ||
       isTransitioning
     ) {
       return
     }
 
+    if (currentDay === 0 && !hasSeenFinalPreparationGuide) {
+      setHoveredAction(null)
+      setPreparationGuideKind('final')
+      setPreparationGuideIndex(0)
+      setIsPreparationGuideActive(true)
+      return
+    }
+
+    if (hasSeenPreparationGuide) {
+      return
+    }
+
     setHoveredAction(null)
+    setPreparationGuideKind('initial')
     setPreparationGuideIndex(0)
     setIsPreparationGuideActive(true)
   }, [
+    currentDay,
+    hasSeenFinalPreparationGuide,
     hasSeenPreparationGuide,
     isPreparation,
     isPreparationGuideActive,
@@ -1256,6 +1401,30 @@ function App() {
       setIsRoomChangePreviewPending(true)
     }
 
+    if (
+      selectedItem.id === 'power-bank' &&
+      backpackReturnScreen === 'escape' &&
+      currentEscapeStep.id === 'route-check'
+    ) {
+      setEscapePhonePowerState('charging')
+      setEscapePhonePromptStage(null)
+      setHoveredItem(null)
+      setSelectedItem(null)
+      setScreen('escape')
+      setPhoneAppView('home')
+      setSelectedContactId(null)
+      setIsContactReplyMenuOpen(false)
+      setSelectedNewsArticleId(null)
+      setIsShelterDetailOpen(false)
+      setHasCheckedEscapeShelter(false)
+      setIsPhoneOpen(true)
+      addDialogueLog({
+        speaker: 'ナレーション',
+        text: 'モバイルバッテリーをつないだ。',
+      })
+      return
+    }
+
     setSelectedItem(null)
   }
 
@@ -1294,6 +1463,18 @@ function App() {
     setSelectedNewsArticleId(null)
     setIsShelterDetailOpen(false)
     setHasCheckedEscapeShelter(false)
+
+    if (
+      isEscape &&
+      currentEscapeStep.id === 'route-check' &&
+      escapePhonePowerState !== 'charged'
+    ) {
+      setEscapePhonePowerState('dead')
+      setEscapePhonePromptStage(null)
+      setIsPhoneOpen(true)
+      return
+    }
+
     setIsPhoneOpen(true)
   }
 
@@ -1325,6 +1506,14 @@ function App() {
     const shouldAdvanceEscape = isEscape && hasCheckedEscapeShelter
     const shouldOpenRouteChoice =
       shouldAdvanceEscape && currentEscapeStep.id === 'near-shelter'
+    const shouldResolveDeadPhone =
+      isEscape &&
+      currentEscapeStep.id === 'route-check' &&
+      escapePhonePowerState === 'dead'
+    const shouldStartChargingWait =
+      isEscape &&
+      currentEscapeStep.id === 'route-check' &&
+      escapePhonePowerState === 'charging'
 
     setIsPhoneOpen(false)
     setPhoneAppView('home')
@@ -1333,6 +1522,18 @@ function App() {
     setSelectedNewsArticleId(null)
     setIsShelterDetailOpen(false)
     setHasCheckedEscapeShelter(false)
+
+    if (shouldResolveDeadPhone) {
+      setEscapePhonePromptStage('dead')
+      addDialogueLog(escapePhoneDeadDialogue)
+      return
+    }
+
+    if (shouldStartChargingWait) {
+      setEscapePhonePromptStage('charging-wait')
+      addDialogueLog(escapePhoneChargingWaitDialogue)
+      return
+    }
 
     if (shouldOpenRouteChoice) {
       setEscapeRouteChoiceStage('warning')
@@ -1454,11 +1655,17 @@ function App() {
     setIsPhoneOpen(false)
     setIsMeasuresOpen(false)
     setSelectedMeasure(null)
+    setIsPreparationGuideActive(false)
+    setHasSeenFinalPreparationGuide(false)
+    setPreparationGuideKind('final')
+    setPreparationGuideIndex(0)
     addDialogueLog(getPreparationDialogue(0))
   }
 
   const jumpToEscapePart = () => {
     setScreen('escape')
+    setEscapeOutcome('true')
+    setIsEscapeLightOn(false)
     resetEscapeFlow()
     setHoveredAction(null)
     setHoveredItem(null)
@@ -1472,6 +1679,8 @@ function App() {
     setSelectedNewsArticleId(null)
     setIsShelterDetailOpen(false)
     setHasCheckedEscapeShelter(false)
+    setEscapePhonePowerState('normal')
+    setEscapePhonePromptStage(null)
     setEscapeRouteChoiceStage(null)
     setHoveredEscapeRouteChoice(null)
     setBackpackReturnScreen('escape')
@@ -1488,9 +1697,13 @@ function App() {
     if (isPreparationGuideActive) {
       const nextGuideIndex = preparationGuideIndex + 1
 
-      if (nextGuideIndex >= preparationGuideSteps.length) {
+      if (nextGuideIndex >= activePreparationGuideSteps.length) {
         setIsPreparationGuideActive(false)
-        setHasSeenPreparationGuide(true)
+        if (preparationGuideKind === 'final') {
+          setHasSeenFinalPreparationGuide(true)
+        } else {
+          setHasSeenPreparationGuide(true)
+        }
         setPreparationGuideIndex(0)
         setHoveredAction(null)
         return
@@ -1515,6 +1728,50 @@ function App() {
     }
 
     if (escapeRouteChoiceStage === 'choices') {
+      return
+    }
+
+    if (escapePhonePromptStage === 'dead') {
+      if (isMobileBatteryUsable) {
+        setEscapePhonePromptStage('backpack')
+        addDialogueLog(escapeBackpackPromptDialogue)
+      } else {
+        setEscapePhonePromptStage('panic')
+        addDialogueLog(escapePhonePanicDialogue)
+      }
+
+      setHoveredAction(null)
+      return
+    }
+
+    if (escapePhonePromptStage === 'charging-wait') {
+      setTransitionText('-しばらくして-')
+      setIsTransitioning(true)
+      setEscapePhonePromptStage(null)
+      setHoveredAction(null)
+
+      window.setTimeout(() => {
+        setEscapePhonePowerState('charged')
+        setPhoneAppView('home')
+        setSelectedContactId(null)
+        setIsContactReplyMenuOpen(false)
+        setSelectedNewsArticleId(null)
+        setIsShelterDetailOpen(false)
+        setHasCheckedEscapeShelter(false)
+        setIsPhoneOpen(true)
+        addDialogueLog({
+          speaker: 'ナレーション',
+          text: 'スマホの充電が少し回復した。避難場所を確認できそうだ。',
+        })
+      }, 140)
+
+      finishTransition()
+      return
+    }
+
+    if (escapePhonePromptStage === 'panic') {
+      setEscapePhonePromptStage(null)
+      setHoveredAction(null)
       return
     }
 
@@ -1660,16 +1917,18 @@ function App() {
     }
 
     if (isPostDisaster && isLastPostDisasterDialogue) {
-      setTransitionText(isFurnitureFastenerUsed ? '-脱出開始-' : '-Bad End-')
+      setTransitionText('-脱出開始-')
       setIsTransitioning(true)
 
       window.setTimeout(() => {
         setIsLogOpen(false)
-        setScreen(isFurnitureFastenerUsed ? 'escape' : 'bad-end')
+        setScreen('escape')
+        setEscapeOutcome(isFurnitureFastenerUsed ? 'true' : 'bad')
+        setIsEscapeLightOn(false)
         resetEscapeFlow()
         setHasCheckedEscapeShelter(false)
         setPostDisasterDialogueIndex(0)
-        addDialogueLog(isFurnitureFastenerUsed ? escapeDialogue : badEndDialogue)
+        addDialogueLog(escapeDialogue)
       }, 140)
 
       finishTransition()
@@ -1685,11 +1944,17 @@ function App() {
     }
 
     if (isShelterArrival) {
-      setTransitionText('-True End-')
+      setTransitionText(escapeOutcome === 'bad' ? '-Bad End-' : '-True End-')
       setIsTransitioning(true)
 
       window.setTimeout(() => {
         setIsLogOpen(false)
+        if (escapeOutcome === 'bad') {
+          setScreen('bad-end')
+          addDialogueLog(badEndDialogue)
+          return
+        }
+
         setScreen('true-end')
         addDialogueLog(trueEndDialogue)
       }, 140)
@@ -1790,6 +2055,8 @@ function App() {
         } ${
           isPreparationGuideActive ? 'is-preparation-guide' : ''
         } ${
+          isEscapeBackpackPromptActive ? 'is-escape-backpack-guide' : ''
+        } ${
           isEscapeRouteChoiceOpen ? 'is-escape-choice' : ''
         }`}
         style={{
@@ -1811,9 +2078,11 @@ function App() {
                     ? fixedAfterDisasterBackground
                     : afterDisasterBackground
                 : isEscape
-                    ? currentEscapeStep.background
+                    ? currentEscapeBackground
                   : isShelterArrival
-                    ? shelterArrivalBackground
+                    ? escapeOutcome === 'bad'
+                      ? shelterArrivalNightBackground
+                      : shelterArrivalBackground
                   : isBadEnd
                     ? badEndBackground
                     : isTrueEnd
@@ -1879,7 +2148,7 @@ function App() {
           )}
         </div>
 
-        {isPreparationGuideActive && (
+        {(isPreparationGuideActive || isEscapeBackpackPromptActive) && (
           <div className="preparation-guide-dim" aria-hidden="true" />
         )}
 
@@ -1978,7 +2247,11 @@ function App() {
               {currentDay === 0 && (
                 <button
                   type="button"
-                  className="action-icon-button action-icon-furniture"
+                  className={`action-icon-button action-icon-furniture ${
+                    isPreparationGuideTarget('furniture')
+                      ? 'is-guide-target'
+                      : ''
+                  }`}
                   onMouseEnter={() => setHoveredAction('furniture')}
                   onMouseLeave={() => setHoveredAction(null)}
                   onFocus={() => setHoveredAction('furniture')}
@@ -2057,19 +2330,58 @@ function App() {
         )}
 
         {isEscape && !isUiHidden && !isEscapeRouteChoiceOpen && (
-          <EscapeControls
-            onHoverAction={setHoveredAction}
-            onOpenPhone={handleOpenPhone}
-            onOpenBackpack={() => {
-              setHoveredAction(null)
-              setBackpackReturnScreen('escape')
-              addDialogueLog({
-                speaker: 'ナレーション',
-                text: '脱出に必要なものを確認しよう。',
-              })
-              setScreen('backpack')
-            }}
-          />
+          <>
+            <div className="escape-progress-panel" aria-label="時間経過">
+              <span>経過時間</span>
+              <div className="escape-progress-track" aria-hidden="true">
+                <span
+                  className="escape-progress-fill"
+                  style={{ width: `${escapeProgressPercent}%` }}
+                />
+                <span
+                  className="escape-progress-marker"
+                  style={{ left: `${escapeProgressPercent}%` }}
+                />
+              </div>
+            </div>
+            <aside className="escape-supply-status" aria-label="水分と空腹の状態">
+              <div className={escapeWaterLevel > 0 ? 'is-available' : 'is-empty'}>
+                <span>水分</span>
+                <strong className="escape-vertical-gauge" aria-hidden="true">
+                  <span style={{ height: `${escapeWaterLevel * 100}%` }} />
+                </strong>
+              </div>
+              <div className={escapeFoodLevel > 0 ? 'is-available' : 'is-empty'}>
+                <span>空腹</span>
+                <strong className="escape-vertical-gauge" aria-hidden="true">
+                  <span style={{ height: `${escapeFoodLevel * 100}%` }} />
+                </strong>
+              </div>
+              {isEscapeNightBackground && (
+                <button
+                  type="button"
+                  className={`escape-light-toggle ${isEscapeLightOn ? 'is-on' : ''}`}
+                  onClick={() => setIsEscapeLightOn((current) => !current)}
+                >
+                  {isEscapeLightOn ? 'ライトOFF' : 'ライトON'}
+                </button>
+              )}
+            </aside>
+            <EscapeControls
+              onHoverAction={setHoveredAction}
+              onOpenPhone={handleOpenPhone}
+              onOpenBackpack={() => {
+                setHoveredAction(null)
+                setEscapePhonePromptStage(null)
+                setBackpackReturnScreen('escape')
+                addDialogueLog({
+                  speaker: 'ナレーション',
+                  text: '脱出に必要なものを確認しよう。',
+                })
+                setScreen('backpack')
+              }}
+            />
+          </>
         )}
 
         {areEscapeRouteChoicesVisible && (
@@ -2101,19 +2413,21 @@ function App() {
 
         {(isPreparation || isEscape) && isPhoneOpen && !isUiHidden && (
           <div
-            className={`phone-overlay ${phoneAppView !== 'home' ? 'is-detail' : ''}`}
+            className={`phone-overlay ${usesPhoneDetailShell ? 'is-detail' : ''}`}
             aria-label="スマホ画面"
             onClick={handleClosePhone}
           >
             <div
-              className={`phone-screen-shell ${phoneAppView !== 'home' ? 'is-detail' : ''}`}
+              className={`phone-screen-shell ${
+                usesPhoneDetailShell ? 'is-detail' : ''
+              } ${usesTallPhoneDetailFrame ? 'is-tall-detail-frame' : ''}`}
               onClick={(event) => event.stopPropagation()}
             >
               <img
-                src={phoneAppView === 'home' ? phoneScreenBackground : phoneWhiteBackground}
+                src={phoneFrameImage}
                 alt=""
               />
-              {phoneAppView === 'home' ? (
+              {isEscapePhoneBlocked ? null : phoneAppView === 'home' ? (
                 <div className="phone-app-grid" aria-label="スマホアプリ">
                   <button
                     type="button"
@@ -2561,7 +2875,7 @@ function App() {
                   onClick={() => {
                     setHoveredItem(null)
                     setSelectedItem(null)
-                    addDialogueLog(escapeDialogue)
+                    addDialogueLog(currentEscapeStep.dialogue)
                     setScreen('escape')
                   }}
                 >
