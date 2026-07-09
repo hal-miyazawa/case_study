@@ -1,14 +1,10 @@
 # Folder Guide
 
-このファイルは、このフォルダ全体の中身を初めて見る人向けに説明したものです。
-「どのファイルが何をしているか」「どこを編集すると画面の何が変わるか」をざっくり理解するための案内です。
+このファイルは、プロジェクトのフォルダ構成と「どこを編集すると何が変わるか」を確認するための案内です。
 
-## 全体の構成
+このアプリは React + TypeScript + Vite で作られた、防災対策をテーマにしたノベルゲーム風のデモです。
 
-このプロジェクトは、React + TypeScript + Vite で作られたフロントエンドアプリです。
-現在は、地震が起こる前に防災対策を選ぶノベルゲーム風のデモです。
-
-主な構成は次の通りです。
+## 全体構成
 
 ```text
 case_study/
@@ -16,120 +12,197 @@ case_study/
 │  ├─ ai-api-setup.md
 │  ├─ app-notes.md
 │  ├─ folder-guide.md
+│  ├─ git-workflow.md
 │  ├─ project-plan.md
 │  └─ story-flow.md
 ├─ public/
-│  ├─ favicon.svg
-│  └─ icons.svg
 ├─ src/
 │  ├─ assets/
 │  │  ├─ backgrounds/
+│  │  │  ├─ news/
+│  │  │  └─ shelter/
+│  │  ├─ bgm/
 │  │  └─ icons/
+│  ├─ features/
+│  │  └─ escape/
+│  │     ├─ EscapeControls.tsx
+│  │     ├─ escapeSteps.ts
+│  │     ├─ types.ts
+│  │     └─ useEscapeFlow.ts
+│  ├─ screens/
+│  │  ├─ Shop.css
+│  │  └─ ShopScreen.tsx
 │  ├─ App.css
 │  ├─ App.tsx
 │  ├─ index.css
 │  └─ main.tsx
-├─ index.html
 ├─ package.json
-├─ package-lock.json
 ├─ vite.config.ts
 └─ tsconfig.json
 ```
 
-## docs の中身
+## docs
 
-`docs` は、企画や作業メモを置く場所です。
-画面には直接表示されません。
+`docs` は企画、作業メモ、開発ルールを置く場所です。画面には直接表示されません。
 
-- `app-notes.md`: 現在の実装状態のメモ
-- `story-flow.md`: ストーリー、画面、分岐、AI活用方針
+- `folder-guide.md`: このファイル。フォルダ構成の案内
+- `story-flow.md`: ストーリー、画面、分岐のメモ
 - `project-plan.md`: 企画全体のメモ
-- `folder-guide.md`: このファイル
-- `ai-api-setup.md`: OpenAI API の確認方法とチームでの扱い方
+- `app-notes.md`: 実装状態や注意点のメモ
+- `git-workflow.md`: Git 作業のメモ
+- `ai-api-setup.md`: OpenAI API の確認方法と扱い方
 
-## public の中身
+## src/App.tsx
 
-`public` は、ブラウザからそのまま参照する静的ファイルを置く場所です。
+アプリ全体の中心です。
 
-- `favicon.svg`: ブラウザタブのアイコン
-- `icons.svg`: SVG アイコンスプライト
+現在ここに残している主な役割:
 
-通常のゲーム背景やボタン用アイコンは、`public` ではなく `src/assets` に置きます。
+- 大きな画面状態 `Screen`
+- メインの画面遷移
+- BGM / 効果音の切り替え
+- 共通のテキストログ
+- 共通のスマホ画面表示
+- リュック画面
+- 振り返り / 現実のあなたへ / 終了画面
+- 各 feature / screen の呼び出し
 
-## src の中身
+今後は、脱出パートのように大きくなった処理から `src/features/` や `src/screens/` に切り出していく方針です。
 
-`src` は、実際のアプリ画面を作っている中心部分です。
+## src/features
 
-### main.tsx
+機能単位で分けたコードを置く場所です。
 
-React アプリの入口です。
-基本的に画面を作る作業では触りません。
+### features/escape
 
-### App.tsx
+脱出パート専用の処理を置いています。
 
-現在のメイン実装です。
+- `types.ts`: 脱出ステップの型定義
+- `escapeSteps.ts`: 脱出画面ごとの背景、セリフ、次の行き先
+- `useEscapeFlow.ts`: 現在の脱出ステップ、次へ進む処理、リセット処理
+- `EscapeControls.tsx`: 脱出パート右側のスマホ / リュックアイコンUI
 
-ここに書かれている主なもの:
+脱出パートの背景やセリフを変える場合は、まず `escapeSteps.ts` を見ます。
 
-- 画面状態 `Screen`
-- 予告本画面のセリフ
-- 通常部屋画面の導入セリフ
-- 対策フェーズの表示
-- ショップ / リュックアイコン
-- リュック画面への遷移
-- リュック画面の仮アイテム一覧
-- アイテムホバー時の説明表示
-- アイテムクリック時の `はい` / `いいえ`
-- テキストログ
-- UI非表示ボタン
-
-今の画面遷移は次の流れです。
+現在の脱出ルート:
 
 ```text
-予告本画面
+脱出画面
 ↓
-通常部屋画面
+脱出画面2
 ↓
--対策フェーズ開始-
+脱出画面3
 ↓
-対策フェーズ
+安全道
 ↓
-リュック画面
+学校到着画面
+↓
+True End
 ```
 
-### App.css
+脱出中は、スマホで避難場所を確認して閉じると次の脱出ステップへ進みます。
 
-`App.tsx` の見た目を決めているファイルです。
+## src/screens
+
+画面として独立しやすいものを置く場所です。
+
+### screens/ShopScreen.tsx
+
+ショップ画面です。
+
+ここにある主な処理:
+
+- 商品一覧
+- 購入済み商品の売り切れ表示
+- 購入確認モーダル
+- ショップ背景のクリック切り替え
+
+ショップ画面の見た目は `screens/Shop.css` を編集します。
+
+## src/assets
+
+画像や音声など、アプリで使う素材を置く場所です。
+
+### assets/backgrounds
+
+背景画像を置く場所です。
+
+主な背景:
+
+- `開始画面.png`
+- `予告本画面.png`
+- `通常部屋画面.png`
+- `通常部屋画面夜.png`
+- `ショップ画面.png`
+- `リュック画面.png`
+- `災害後画面.png`
+- `脱出画面.png`
+- `脱出画面2.png`
+- `脱出画面3.png`
+- `安全道.png`
+- `学校到着画面.png`
+- `BadEnd.png`
+- `TrueEnd.png`
+
+スマホ内ニュース画像は `assets/backgrounds/news/`、避難場所詳細の学校画像は `assets/backgrounds/shelter/` に置いています。
+
+### assets/bgm
+
+BGM と効果音を置く場所です。
+
+例:
+
+- `部屋_通常.mp3`
+- `対策フェーズ.mp3`
+- `ショップ.mp3`
+- `ショップ購入音.mp3`
+- `テキストボックスクリック音.mp3`
+- `地震発生.mp3`
+- `地響き.mp3`
+- `脱出パートBGM.mp3`
+- `脱出パートBGM2.mp3`
+- `TRUEエンド.mp3`
+- `BADエンド.mp3`
+
+BGM の切り替えや効果音の再生タイミングは主に `App.tsx` で管理しています。
+
+### assets/icons
+
+UIアイコンを置く場所です。
+
+例:
+
+- `ショップicon.png`
+- `スマホicon.png`
+- `リュックicon.png`
+- `対策icon.png`
+
+## src/App.css
+
+アプリ全体の見た目を決めるCSSです。
 
 よく編集する場所:
 
-| 変えたいもの | 編集するCSS |
+| 変えたいもの | 主なCSS |
 | --- | --- |
-| 背景の表示方法 | `.scene` |
-| 暗転演出 | `.scene-transition`, `.transition-title` |
-| 左上の対策フェーズ表示 | `.phase-hud` |
-| 右上の残り日数 | `.day-counter` |
-| ショップ / リュックアイコン | `.action-icons`, `.action-icon-button` |
-| テキストログ / UI非表示ボタン | `.log-toggle`, `.ui-toggle` |
-| リュック画面の戻るボタン | `.backpack-top-actions`, `.back-button` |
-| リュックのアイテム一覧 | `.inventory-panel` |
-| アイテムの行 | `.inventory-panel li button` |
-| アイテム用アイコン枠 | `.item-icon-slot` |
-| はい / いいえ | `.confirm-actions` |
-| テキストログ画面 | `.text-log-overlay`, `.text-log-panel`, `.text-log-body` |
-| テキストボックス | `.message-box` |
-| 名前欄 | `.nameplate` |
-| セリフ本文 | `.dialogue-text` |
-| 次へマーク | `.next-mark` |
+| 背景表示 | `.scene` |
+| 地震の揺れ | `.scene.is-shaking`, `quake-background-shake`, `quake-ui-shake` |
+| 暗転 / 画面遷移 | `.scene-transition`, `.transition-title` |
+| 対策フェーズのヘッダー | `.phase-header` |
+| 対策アイコン群 | `.action-icons`, `.action-icon-button` |
+| 脱出パートのアイコン群 | `.escape-action-icons`, `.escape-icon-phone`, `.escape-icon-backpack` |
+| スマホ画面 | `.phone-overlay`, `.phone-screen-shell`, `.phone-*` |
+| リュック画面 | `.inventory-panel`, `.backpack-top-actions` |
+| テキストログ | `.text-log-overlay`, `.text-log-panel`, `.text-log-body` |
+| テキストボックス | `.message-box`, `.nameplate`, `.dialogue-text`, `.next-mark` |
+| 振り返りモーダル | `.result-review-panel` |
+| 現実のあなたへ | `.real-life-panel` |
 
-今はスマホ用の `@media` は一旦削除しています。
-デスクトップ画面を優先して調整中です。
-
-### index.css
+## src/index.css
 
 アプリ全体に共通する基本スタイルです。
 
-現在は次のような設定があります。
+主な内容:
 
 - フォント指定
 - body の余白削除
@@ -137,144 +210,80 @@ React アプリの入口です。
 - テキスト選択防止
 - 画像ドラッグ防止
 
-長押しやドラッグで文字や画像が青く選択されないようにする設定もここにあります。
+## main.tsx
 
-## assets の中身
+React アプリの入口です。
+通常の画面作成では基本的に触りません。
 
-### backgrounds
+## よくある編集場所
 
-画面背景画像を置く場所です。
-
-現在ある主な背景:
-
-- `予告本画面.png`
-- `通常部屋画面.png`
-- `リュック画面.png`
-- `ショップ画面.png`
-- `災害後画面.png`
-- `BadEnd.png`
-- `TrueEnd.png`
-
-背景を追加したら、基本的には `src/App.tsx` で import して使います。
-
-例:
-
-```tsx
-import shopBackground from './assets/backgrounds/ショップ画面.png'
-```
-
-### icons
-
-自由行動フェーズなどで使う UI アイコンを置く場所です。
-
-現在あるアイコン:
-
-- `ショップicon.png`
-- `リュックicon.png`
-- `item.png`
-
-アイコンを追加したら、`src/App.tsx` で import してボタン画像として使います。
-
-## どこを編集すると何が変わるか
-
-### セリフを変えたい
-
-編集するファイル:
+### 脱出パートの背景やセリフを変えたい
 
 ```text
+src/features/escape/escapeSteps.ts
+```
+
+### 脱出パートの進行条件を変えたい
+
+```text
+src/features/escape/useEscapeFlow.ts
 src/App.tsx
 ```
 
-見る場所:
+今はスマホで避難場所を確認して閉じると進む処理が `App.tsx` 側にあります。
+今後、モバイルバッテリー分岐や水・食料ゲージを入れる場合は、`useEscapeFlow.ts` に寄せていく予定です。
 
-- `bookWarningDialogues`
-- `roomIntroDialogues`
-- `roomDialogue`
+### ショップの商品や購入処理を変えたい
 
-### 画面を増やしたい
+```text
+src/screens/ShopScreen.tsx
+src/screens/Shop.css
+```
 
-編集するファイル:
+### BGMや効果音を変えたい
+
+```text
+src/assets/bgm/
+src/App.tsx
+```
+
+### スマホ内ニュースや避難場所画面を変えたい
 
 ```text
 src/App.tsx
 src/App.css
+src/assets/backgrounds/news/
+src/assets/backgrounds/shelter/
 ```
 
-`Screen` 型に画面名を追加し、背景画像を import して、表示条件を追加します。
-
-### 背景画像を差し替えたい
-
-編集する場所:
+### 背景画像を追加したい
 
 ```text
 src/assets/backgrounds/
-src/App.tsx
 ```
 
-画像ファイルを `backgrounds` に置き、`App.tsx` の import を変えます。
-
-### UIの位置や大きさを変えたい
-
-編集するファイル:
-
-```text
-src/App.css
-```
+画像を追加したら、使う場所の `.tsx` ファイルで import します。
 
 例:
 
-- テキストボックス位置: `.message-box`
-- ログ/UIボタン位置: `.log-toggle`, `.ui-toggle`
-- ショップ/リュック位置: `.action-icons`
-- リュック一覧位置: `.inventory-panel`
-
-### リュックのアイテムを変えたい
-
-編集するファイル:
-
-```text
-src/App.tsx
+```tsx
+import newBackground from './assets/backgrounds/example.png'
 ```
 
-見る場所:
+feature 内から使う場合は相対パスが変わります。
 
 ```tsx
-const backpackItems = [
+import newBackground from '../../assets/backgrounds/example.png'
 ```
 
-今は仮で18項目すべてを表示しています。
-今後はショップで購入したアイテムだけを表示する形に変える想定です。
+## 今後の整理方針
 
-### テキストログを変えたい
+`App.tsx` がまだ大きいため、次の順番で切り出すと安全です。
 
-編集するファイル:
+1. スマホ画面を `features/phone/PhoneOverlay.tsx` に分離
+2. リュック画面を `features/backpack/BackpackScreen.tsx` に分離
+3. アイテム定義を `data/items.ts` に移動
+4. セリフ定義を `data/dialogues.ts` に移動
+5. BGM管理を `features/audio/` に分離
 
-```text
-src/App.tsx
-src/App.css
-```
-
-ログに追加する処理は `addDialogueLog`。
-見た目は `.text-log-*` のCSSです。
-
-### AI連携を確認したい
-
-見るファイル:
-
-```text
-docs/ai-api-setup.md
-vite.config.ts
-```
-
-今はショップ到達前まではAIを使わない方針ですが、開発用API `/api/ai-scene` は残っています。
-
-## 触る頻度が低いファイル
-
-- `src/main.tsx`: React の起動部分
-- `index.html`: HTML の土台
-- `vite.config.ts`: Vite 設定と開発用API
-- `tsconfig*.json`: TypeScript 設定
-- `eslint.config.js`: ESLint設定
-- `package-lock.json`: 依存関係の固定情報
-
-通常の画面作成では、まず `App.tsx`、`App.css`、`src/assets` を見れば大丈夫です。
+一度に全部分けるより、機能追加するタイミングで関連部分だけ切り出す方が安全です。

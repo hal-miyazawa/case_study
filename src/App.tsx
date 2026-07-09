@@ -4,9 +4,6 @@ import afterDisasterBackground from './assets/backgrounds/災害後画面.png'
 import backpackBackground from './assets/backgrounds/リュック画面.png'
 import backpackEscapeBackground from './assets/backgrounds/リュック画面脱出.png'
 import bookWarningBackground from './assets/backgrounds/予告本画面.png'
-import escapeBackground from './assets/backgrounds/脱出画面.png'
-import escapeBackground2 from './assets/backgrounds/脱出画面2.png'
-import escapeBackground3 from './assets/backgrounds/脱出画面3.png'
 import fixedAfterDisasterBackground from './assets/backgrounds/固定器具使用災害後画面.png'
 import fixedNormalRoomBackground from './assets/backgrounds/固定器具使用通常部屋画面.png'
 import normalRoomBackground from './assets/backgrounds/通常部屋画面.png'
@@ -14,7 +11,6 @@ import nightRoomBackground from './assets/backgrounds/通常部屋画面夜.png'
 import phoneScreenBackground from './assets/backgrounds/スマホ画面.png'
 import phoneWhiteBackground from './assets/backgrounds/スマホ画面_白背景.png'
 import shelterArrivalBackground from './assets/backgrounds/学校到着画面.png'
-import safeRoadBackground from './assets/backgrounds/安全道.png'
 import startBackground from './assets/backgrounds/開始画面.png'
 import bookNewsImage from './assets/backgrounds/news/book.png'
 import bookNewsThumbnail from './assets/backgrounds/news/book_i.png'
@@ -46,6 +42,9 @@ import backpackIcon from './assets/icons/リュックicon.png'
 import phoneIcon from './assets/icons/スマホicon.png'
 import shopIcon from './assets/icons/ショップicon.png'
 import './App.css'
+import { EscapeControls } from './features/escape/EscapeControls'
+import { initialEscapeDialogue } from './features/escape/escapeSteps'
+import { useEscapeFlow } from './features/escape/useEscapeFlow'
 import ShopScreen, { type ItemId } from './screens/ShopScreen'
 
 type Screen =
@@ -73,6 +72,13 @@ type StoryDay = 0 | 1 | 2
 type Dialogue = {
   speaker: string
   text: string
+}
+
+type PreparationGuideTarget = 'message' | 'shop' | 'backpack' | 'phone' | 'finish'
+
+type PreparationGuideStep = {
+  target: PreparationGuideTarget
+  dialogue: Dialogue
 }
 
 type PhoneAppView = 'home' | 'contact' | 'news' | 'shelter'
@@ -107,6 +113,8 @@ type NewsArticle = {
   imageAlt?: string
   thumbnail: string
 }
+
+type EscapeRouteChoiceStage = 'warning' | 'prompt' | 'choices' | null
 
 // 商品ごとの購入数とリュック収納数を管理する型。
 // 0なら未購入/未収納、1以上なら購入済み/収納済みとして扱う。
@@ -458,26 +466,7 @@ const trueEndDialogue: Dialogue = {
   text: 'True End。家具固定の備えが命を守った。',
 }
 
-const escapeDialogue: Dialogue = {
-  speaker: 'ナレーション',
-  text: '外へ出た。まずはスマホで避難場所を確認しよう。',
-}
-
-const escapeDialogues: Dialogue[] = [
-  escapeDialogue,
-  {
-    speaker: 'ナレーション',
-    text: '道が入り組んできた。もう一度スマホで避難場所を確認しよう。',
-  },
-  {
-    speaker: 'ナレーション',
-    text: '避難所に近づいてきた。現在地を確認しよう。',
-  },
-  {
-    speaker: 'ナレーション',
-    text: '安全な通りに出た。最後に避難所までの道を確認しよう。',
-  },
-]
+const escapeDialogue: Dialogue = initialEscapeDialogue
 
 const shelterArrivalDialogue: Dialogue = {
   speaker: 'ナレーション',
@@ -639,6 +628,61 @@ const createInitialContactReplyLog = (): Record<ContactId, ContactMessage[]> => 
   relative: [],
 })
 
+const preparationGuideSteps: PreparationGuideStep[] = [
+  {
+    target: 'message',
+    dialogue: {
+      speaker: 'ガイド',
+      text: '対策フェーズでは、災害に備えるための行動を選んでいきます。',
+    },
+  },
+  {
+    target: 'shop',
+    dialogue: {
+      speaker: 'ガイド',
+      text: 'ショップでは、防災に役立つアイテムを購入できます。',
+    },
+  },
+  {
+    target: 'backpack',
+    dialogue: {
+      speaker: 'ガイド',
+      text: 'リュックでは、ショップで購入したアイテムを使用できます。',
+    },
+  },
+  {
+    target: 'phone',
+    dialogue: {
+      speaker: 'ガイド',
+      text: 'スマホでは、家族への連絡、ニュース確認、避難場所の確認ができます。',
+    },
+  },
+  {
+    target: 'finish',
+    dialogue: {
+      speaker: 'ガイド',
+      text: '対策を終えたい場合は、右上の「対策を終える」を押します。',
+    },
+  },
+  {
+    target: 'message',
+    dialogue: {
+      speaker: 'ガイド',
+      text: '説明は以上です。行動を開始してください。',
+    },
+  },
+]
+
+const escapeRouteWarningDialogue: Dialogue = {
+  speaker: 'ナレーション',
+  text: '最短は右の道だけど、危なそうだな。',
+}
+
+const escapeRoutePromptDialogue: Dialogue = {
+  speaker: 'ナレーション',
+  text: 'どっちに進もうか。',
+}
+
 
 function App() {
   const [screen, setScreen] = useState<Screen>('start')
@@ -648,7 +692,6 @@ function App() {
   const [nightDialogueIndex, setNightDialogueIndex] = useState(0)
   const [dayStartDialogueIndex, setDayStartDialogueIndex] = useState(0)
   const [postDisasterDialogueIndex, setPostDisasterDialogueIndex] = useState(0)
-  const [escapeStep, setEscapeStep] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [transitionText, setTransitionText] = useState<string | null>(null)
   const [hoveredAction, setHoveredAction] = useState<string | null>(null)
@@ -676,6 +719,14 @@ function App() {
   const [isScreenShaking, setIsScreenShaking] = useState(false)
   const [isAudioEnabled, setIsAudioEnabled] = useState(false)
   const [hasCheckedEscapeShelter, setHasCheckedEscapeShelter] = useState(false)
+  const [escapeRouteChoiceStage, setEscapeRouteChoiceStage] =
+    useState<EscapeRouteChoiceStage>(null)
+  const [hoveredEscapeRouteChoice, setHoveredEscapeRouteChoice] = useState<
+    'right' | 'left' | null
+  >(null)
+  const [isPreparationGuideActive, setIsPreparationGuideActive] = useState(false)
+  const [hasSeenPreparationGuide, setHasSeenPreparationGuide] = useState(false)
+  const [preparationGuideIndex, setPreparationGuideIndex] = useState(0)
   const [isRoomChangePreviewPending, setIsRoomChangePreviewPending] =
     useState(false)
   const [roomChangePreviewDialogue, setRoomChangePreviewDialogue] =
@@ -705,6 +756,11 @@ function App() {
   const bgmAudioRef = useRef<HTMLAudioElement | null>(null)
   const currentBgmSrcRef = useRef<string | null>(null)
   const groundRumbleAudioRef = useRef<HTMLAudioElement | null>(null)
+  const {
+    currentEscapeStep,
+    resetEscapeFlow,
+    advanceEscapeStep: advanceEscapeFlowStep,
+  } = useEscapeFlow()
 
   const isStart = screen === 'start'
   const isBookWarning = screen === 'book-warning'
@@ -731,12 +787,10 @@ function App() {
   const isFurnitureFastenerUsed = itemFlags['furniture-fasteners'].packed > 0
   const isWindowFilmUsed = itemFlags['window-film'].packed > 0
   const isMobileBatteryPurchased = itemFlags['power-bank'].purchased > 0
-  const escapeBackgrounds = [
-    escapeBackground,
-    escapeBackground2,
-    escapeBackground3,
-    safeRoadBackground,
-  ]
+  const currentPreparationGuideStep =
+    preparationGuideSteps[preparationGuideIndex] ?? preparationGuideSteps[0]
+  const isPreparationGuideTarget = (target: PreparationGuideTarget) =>
+    isPreparationGuideActive && currentPreparationGuideStep.target === target
   const currentPostDisasterDialogues = isFurnitureFastenerUsed
     ? truePostDisasterDialogues
     : postDisasterDialogues
@@ -809,7 +863,13 @@ function App() {
 
   // 部屋対策の達成数。今後のエンディング判定や結果画面に使える。
   const completedRoomMeasureCount = Object.values(roomMeasureFlags).filter(Boolean).length
+  const isEscapeRouteChoiceOpen = escapeRouteChoiceStage !== null
+  const canAdvanceEscapeRouteText =
+    escapeRouteChoiceStage === 'warning' || escapeRouteChoiceStage === 'prompt'
+  const areEscapeRouteChoicesVisible = escapeRouteChoiceStage === 'choices'
   const canAdvanceDialogue =
+    isPreparationGuideActive ||
+    canAdvanceEscapeRouteText ||
     isBookWarning ||
     isRoomIntro ||
     isNight ||
@@ -822,8 +882,10 @@ function App() {
     isTrueEnd ||
     isResultReview ||
     isRealLifeMessage
-  const currentDialogue = isBookWarning
-    ? bookWarningDialogues[dialogueIndex]
+  const currentDialogue = isPreparationGuideActive
+    ? currentPreparationGuideStep.dialogue
+    : isBookWarning
+      ? bookWarningDialogues[dialogueIndex]
     : isRoomIntro
       ? roomIntroDialogues[roomIntroIndex]
       : isNight
@@ -912,8 +974,12 @@ function App() {
                           speaker: 'ナレーション',
                           text: '非常用リュックに入れる準備をしよう。',
                         }
-                : isEscape
-                  ? escapeDialogues[escapeStep] ?? escapeDialogue
+                : escapeRouteChoiceStage === 'warning'
+                  ? escapeRouteWarningDialogue
+                  : escapeRouteChoiceStage === 'prompt'
+                    ? escapeRoutePromptDialogue
+                  : isEscape
+                    ? currentEscapeStep.dialogue
                   : preparationDialogue
   const isLastBookDialogue =
     isBookWarning && dialogueIndex === bookWarningDialogues.length - 1
@@ -941,7 +1007,7 @@ function App() {
     setNightDialogueIndex(0)
     setDayStartDialogueIndex(0)
     setPostDisasterDialogueIndex(0)
-    setEscapeStep(0)
+    resetEscapeFlow()
     setIsTransitioning(false)
     setTransitionText(null)
     setHoveredAction(null)
@@ -962,6 +1028,11 @@ function App() {
     setIsItemUseFlashActive(false)
     setIsScreenShaking(false)
     setHasCheckedEscapeShelter(false)
+    setEscapeRouteChoiceStage(null)
+    setHoveredEscapeRouteChoice(null)
+    setIsPreparationGuideActive(false)
+    setHasSeenPreparationGuide(false)
+    setPreparationGuideIndex(0)
     setIsRoomChangePreviewPending(false)
     setRoomChangePreviewDialogue(createRoomChangePreviewDialogue(false, false))
     setItemFlags(createInitialItemFlags())
@@ -1040,6 +1111,26 @@ function App() {
 
     setIsScreenShaking(false)
   }, [isPostDisaster])
+
+  useEffect(() => {
+    if (
+      !isPreparation ||
+      hasSeenPreparationGuide ||
+      isPreparationGuideActive ||
+      isTransitioning
+    ) {
+      return
+    }
+
+    setHoveredAction(null)
+    setPreparationGuideIndex(0)
+    setIsPreparationGuideActive(true)
+  }, [
+    hasSeenPreparationGuide,
+    isPreparation,
+    isPreparationGuideActive,
+    isTransitioning,
+  ])
 
   const addDialogueLog = (dialogue: Dialogue) => {
     setDialogueLog((current) => {
@@ -1211,21 +1302,20 @@ function App() {
       return
     }
 
-    const nextStep = escapeStep + 1
-
     setTransitionText(null)
     setIsTransitioning(true)
     setHoveredAction(null)
 
     window.setTimeout(() => {
-      if (nextStep >= escapeDialogues.length) {
+      const result = advanceEscapeFlowStep()
+
+      if (result.type === 'shelter') {
         setScreen('shelter-arrival')
         addDialogueLog(shelterArrivalDialogue)
         return
       }
 
-      setEscapeStep(nextStep)
-      addDialogueLog(escapeDialogues[nextStep])
+      addDialogueLog(result.step.dialogue)
     }, 140)
 
     finishTransition()
@@ -1233,6 +1323,8 @@ function App() {
 
   const handleClosePhone = () => {
     const shouldAdvanceEscape = isEscape && hasCheckedEscapeShelter
+    const shouldOpenRouteChoice =
+      shouldAdvanceEscape && currentEscapeStep.id === 'near-shelter'
 
     setIsPhoneOpen(false)
     setPhoneAppView('home')
@@ -1242,9 +1334,29 @@ function App() {
     setIsShelterDetailOpen(false)
     setHasCheckedEscapeShelter(false)
 
+    if (shouldOpenRouteChoice) {
+      setEscapeRouteChoiceStage('warning')
+      setHoveredEscapeRouteChoice(null)
+      addDialogueLog(escapeRouteWarningDialogue)
+      return
+    }
+
     if (shouldAdvanceEscape) {
       advanceEscapeStep()
     }
+  }
+
+  const handleChooseEscapeRoute = (route: 'right' | 'left') => {
+    setHoveredEscapeRouteChoice(null)
+    setEscapeRouteChoiceStage(null)
+    addDialogueLog({
+      speaker: 'ナレーション',
+      text:
+        route === 'right'
+          ? '右の道へ進むことにした。'
+          : '左の道へ進むことにした。',
+    })
+    advanceEscapeStep()
   }
 
   const handleContactQuickReply = (
@@ -1347,7 +1459,7 @@ function App() {
 
   const jumpToEscapePart = () => {
     setScreen('escape')
-    setEscapeStep(0)
+    resetEscapeFlow()
     setHoveredAction(null)
     setHoveredItem(null)
     setSelectedItem(null)
@@ -1360,6 +1472,8 @@ function App() {
     setSelectedNewsArticleId(null)
     setIsShelterDetailOpen(false)
     setHasCheckedEscapeShelter(false)
+    setEscapeRouteChoiceStage(null)
+    setHoveredEscapeRouteChoice(null)
     setBackpackReturnScreen('escape')
     setIsMeasuresOpen(false)
     setSelectedMeasure(null)
@@ -1368,6 +1482,39 @@ function App() {
 
   const handleNextDialogue = () => {
     if (isTransitioning) {
+      return
+    }
+
+    if (isPreparationGuideActive) {
+      const nextGuideIndex = preparationGuideIndex + 1
+
+      if (nextGuideIndex >= preparationGuideSteps.length) {
+        setIsPreparationGuideActive(false)
+        setHasSeenPreparationGuide(true)
+        setPreparationGuideIndex(0)
+        setHoveredAction(null)
+        return
+      }
+
+      setPreparationGuideIndex(nextGuideIndex)
+      setHoveredAction(null)
+      return
+    }
+
+    if (escapeRouteChoiceStage === 'warning') {
+      setEscapeRouteChoiceStage('prompt')
+      setHoveredAction(null)
+      addDialogueLog(escapeRoutePromptDialogue)
+      return
+    }
+
+    if (escapeRouteChoiceStage === 'prompt') {
+      setEscapeRouteChoiceStage('choices')
+      setHoveredAction(null)
+      return
+    }
+
+    if (escapeRouteChoiceStage === 'choices') {
       return
     }
 
@@ -1519,7 +1666,7 @@ function App() {
       window.setTimeout(() => {
         setIsLogOpen(false)
         setScreen(isFurnitureFastenerUsed ? 'escape' : 'bad-end')
-        setEscapeStep(0)
+        resetEscapeFlow()
         setHasCheckedEscapeShelter(false)
         setPostDisasterDialogueIndex(0)
         addDialogueLog(isFurnitureFastenerUsed ? escapeDialogue : badEndDialogue)
@@ -1640,6 +1787,10 @@ function App() {
           isAfterBadEnd ? 'is-ending-panel' : ''
         } ${
           isScreenShaking && isPostDisaster ? 'is-shaking' : ''
+        } ${
+          isPreparationGuideActive ? 'is-preparation-guide' : ''
+        } ${
+          isEscapeRouteChoiceOpen ? 'is-escape-choice' : ''
         }`}
         style={{
           backgroundImage: `url(${
@@ -1660,7 +1811,7 @@ function App() {
                     ? fixedAfterDisasterBackground
                     : afterDisasterBackground
                 : isEscape
-                    ? escapeBackgrounds[escapeStep] ?? escapeBackground
+                    ? currentEscapeStep.background
                   : isShelterArrival
                     ? shelterArrivalBackground
                   : isBadEnd
@@ -1728,7 +1879,27 @@ function App() {
           )}
         </div>
 
-        {!isStart && !shouldHideGlobalControls && (
+        {isPreparationGuideActive && (
+          <div className="preparation-guide-dim" aria-hidden="true" />
+        )}
+
+        {areEscapeRouteChoicesVisible && (
+          <div
+            className={`escape-choice-shade ${
+              hoveredEscapeRouteChoice === 'right'
+                ? 'is-right-hovered'
+                : hoveredEscapeRouteChoice === 'left'
+                  ? 'is-left-hovered'
+                  : ''
+            }`}
+            aria-hidden="true"
+          >
+            <span className="escape-choice-mask is-left" />
+            <span className="escape-choice-mask is-right" />
+          </div>
+        )}
+
+        {!isStart && !shouldHideGlobalControls && !isEscapeRouteChoiceOpen && (
           <button
             type="button"
             className="ui-toggle"
@@ -1738,7 +1909,7 @@ function App() {
           </button>
         )}
 
-        {!isStart && !isUiHidden && !shouldHideGlobalControls && (
+        {!isStart && !isUiHidden && !shouldHideGlobalControls && !isEscapeRouteChoiceOpen && (
           <button
             type="button"
             className={`log-toggle ${isBackpack ? 'is-backpack' : ''}`}
@@ -1790,7 +1961,9 @@ function App() {
                 </button>
                 <button
                   type="button"
-                  className="game-header-action"
+                  className={`game-header-action ${
+                    isPreparationGuideTarget('finish') ? 'is-guide-target' : ''
+                  }`}
                   onMouseEnter={() => setHoveredAction('finish-day')}
                   onMouseLeave={() => setHoveredAction(null)}
                   onFocus={() => setHoveredAction('finish-day')}
@@ -1823,7 +1996,9 @@ function App() {
               )}
               <button
                 type="button"
-                className="action-icon-button action-icon-shop"
+                className={`action-icon-button action-icon-shop ${
+                  isPreparationGuideTarget('shop') ? 'is-guide-target' : ''
+                }`}
                 onMouseEnter={() => setHoveredAction('shop')}
                 onMouseLeave={() => setHoveredAction(null)}
                 onFocus={() => setHoveredAction('shop')}
@@ -1842,7 +2017,9 @@ function App() {
               </button>
               <button
                 type="button"
-                className="action-icon-button action-icon-phone"
+                className={`action-icon-button action-icon-phone ${
+                  isPreparationGuideTarget('phone') ? 'is-guide-target' : ''
+                }`}
                 onMouseEnter={() => setHoveredAction('phone')}
                 onMouseLeave={() => setHoveredAction(null)}
                 onFocus={() => setHoveredAction('phone')}
@@ -1855,7 +2032,9 @@ function App() {
               </button>
               <button
                 type="button"
-                className="action-icon-button action-icon-backpack"
+                className={`action-icon-button action-icon-backpack ${
+                  isPreparationGuideTarget('backpack') ? 'is-guide-target' : ''
+                }`}
                 onMouseEnter={() => setHoveredAction('backpack')}
                 onMouseLeave={() => setHoveredAction(null)}
                 onFocus={() => setHoveredAction('backpack')}
@@ -1877,45 +2056,47 @@ function App() {
           </>
         )}
 
-        {isEscape && !isUiHidden && (
-          <>
-            <div className="escape-action-icons" aria-label="脱出行動">
-              <button
-                type="button"
-                className="action-icon-button escape-icon-phone"
-                onMouseEnter={() => setHoveredAction('phone')}
-                onMouseLeave={() => setHoveredAction(null)}
-                onFocus={() => setHoveredAction('phone')}
-                onBlur={() => setHoveredAction(null)}
-                onClick={handleOpenPhone}
-                aria-label="スマホ"
-              >
-                <img src={phoneIcon} alt="" />
-                <span>スマホ</span>
-              </button>
-              <button
-                type="button"
-                className="action-icon-button escape-icon-backpack"
-                onMouseEnter={() => setHoveredAction('backpack')}
-                onMouseLeave={() => setHoveredAction(null)}
-                onFocus={() => setHoveredAction('backpack')}
-                onBlur={() => setHoveredAction(null)}
-                onClick={() => {
-                  setHoveredAction(null)
-                  setBackpackReturnScreen('escape')
-                  addDialogueLog({
-                    speaker: 'ナレーション',
-                    text: '脱出に必要なものを確認しよう。',
-                  })
-                  setScreen('backpack')
-                }}
-                aria-label="リュック"
-              >
-                <img src={backpackIcon} alt="" />
-                <span>リュック</span>
-              </button>
-            </div>
-          </>
+        {isEscape && !isUiHidden && !isEscapeRouteChoiceOpen && (
+          <EscapeControls
+            onHoverAction={setHoveredAction}
+            onOpenPhone={handleOpenPhone}
+            onOpenBackpack={() => {
+              setHoveredAction(null)
+              setBackpackReturnScreen('escape')
+              addDialogueLog({
+                speaker: 'ナレーション',
+                text: '脱出に必要なものを確認しよう。',
+              })
+              setScreen('backpack')
+            }}
+          />
+        )}
+
+        {areEscapeRouteChoicesVisible && (
+          <div className="escape-route-choice-panel" aria-label="進む道を選ぶ">
+            <button
+              type="button"
+              className="escape-route-choice-button is-right"
+              onMouseEnter={() => setHoveredEscapeRouteChoice('right')}
+              onMouseLeave={() => setHoveredEscapeRouteChoice(null)}
+              onFocus={() => setHoveredEscapeRouteChoice('right')}
+              onBlur={() => setHoveredEscapeRouteChoice(null)}
+              onClick={() => handleChooseEscapeRoute('right')}
+            >
+              右の道へ進む
+            </button>
+            <button
+              type="button"
+              className="escape-route-choice-button is-left"
+              onMouseEnter={() => setHoveredEscapeRouteChoice('left')}
+              onMouseLeave={() => setHoveredEscapeRouteChoice(null)}
+              onFocus={() => setHoveredEscapeRouteChoice('left')}
+              onBlur={() => setHoveredEscapeRouteChoice(null)}
+              onClick={() => handleChooseEscapeRoute('left')}
+            >
+              左の道へ進む
+            </button>
+          </div>
         )}
 
         {(isPreparation || isEscape) && isPhoneOpen && !isUiHidden && (
@@ -2575,7 +2756,11 @@ function App() {
           </section>
         )}
 
-        {!isStart && !isEndingActions && !isResultReview && !isRealLifeMessage && (
+        {!isStart &&
+          !isEndingActions &&
+          !isResultReview &&
+          !isRealLifeMessage &&
+          !areEscapeRouteChoicesVisible && (
           <button
             type="button"
             className={`message-box ${
