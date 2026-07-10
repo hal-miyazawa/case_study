@@ -76,7 +76,7 @@ Dさん: docs/
 開発サーバーを起動します。
 
 ```bash
-npm run dev
+![alt text](image.png)
 ```
 
 成功すると、ターミナルに次のような表示が出ます。

@@ -145,15 +145,15 @@ const items: Record<Category, ShopItem[]> = {
     },
     {
       id: 'retort-rice',
-      name: 'レトルトご飯・保存食',
+      name: 'レトルトご飯',
       image: itemIcon,
       description: '便利で長期保存が可能な食料品です。',
     },
     {
       id: 'portable-toilet',
-      name: '簡易トイレ',
+      name: '生米',
       image: itemIcon,
-      description: '非常時や災害時に使用する簡易トイレです。',
+      description: '白米はおいしい！元気が出る！',
     },
   ],
   medical: [
@@ -428,8 +428,8 @@ export default function ShopScreen({
 //     { id: 'emergency-food', name: '非常食セット', image: 'img/item.png', description: '非常時に使用する食料品です。' },
 //     { id: 'canned-food', name: '缶詰', image: 'img/item.png', description: '長期保存が可能な缶詰食品です。' },
 //     { id: 'nutrition-supplements', name: '栄養補助食品', image: 'img/item.png', description: '栄養バランスを整えるための補助食品です。' },
-//     { id: 'retort-rice', name: 'レトルトご飯・保存食', image: 'img/item.png', description: '便利で長期保存が可能な食料品です。' },
-//     { id: 'portable-toilet', name: '簡易トイレ', image: 'img/item.png', description: '非常時や災害時に使用する簡易トイレです。' },
+//     { id: 'retort-rice', name: 'レトルト', image: 'img/item.png', description: '便利で長期保存が可能な食料品です。' },
+//     { id: 'portable-toilet', name: '生米', image: 'img/item.png', description: '非常時や災害時に使用する簡易トイレです。' },
 //   ],
 //   medical: [
 //     { id: 'first-aid-kit', name: '救急セット', image: 'img/item.png', description: '救急時に使用するセットです。' },

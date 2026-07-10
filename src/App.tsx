@@ -6,6 +6,10 @@ import backpackEscapeBackground from './assets/backgrounds/リュック画面脱
 import bookWarningBackground from './assets/backgrounds/予告本画面.png'
 import fixedAfterDisasterBackground from './assets/backgrounds/固定器具使用災害後画面.png'
 import fixedNormalRoomBackground from './assets/backgrounds/固定器具使用通常部屋画面.png'
+import panicRoadBackground from './assets/backgrounds/焦り道.png'
+import panicRoadBackground1 from './assets/backgrounds/焦り道1.png'
+import panicRoadBackground2 from './assets/backgrounds/焦り道2.png'
+import panicRoadBackground3 from './assets/backgrounds/焦り道3.png'
 import normalRoomBackground from './assets/backgrounds/通常部屋画面.png'
 import nightRoomBackground from './assets/backgrounds/通常部屋画面夜.png'
 import phoneScreenBackground from './assets/backgrounds/スマホ画面.png'
@@ -30,6 +34,7 @@ import weatherNewsImage from './assets/backgrounds/news/weather.png'
 import weatherNewsThumbnail from './assets/backgrounds/news/weather_i.png'
 import shelterSchoolImage from './assets/backgrounds/shelter/school.png'
 import trueEndBackground from './assets/backgrounds/TrueEnd.png'
+import futureBookCutBackground from './assets/backgrounds/ワイが見た未来.png'
 import badEndBgm from './assets/bgm/BADエンド.mp3'
 import trueEndBgm from './assets/bgm/TRUEエンド.mp3'
 import itemUseSound from './assets/bgm/アイテム使用音.mp3'
@@ -58,6 +63,7 @@ import ShopScreen, { type ItemId } from './screens/ShopScreen'
 type Screen =
   | 'start'
   | 'book-warning'
+  | 'future-book-cut'
   | 'room-intro'
   | 'preparation'
   | 'backpack'
@@ -564,8 +570,8 @@ const backpackItems: BackpackItem[] = [
   },
   {
     id: 'portable-toilet',
-    name: '簡易トイレ',
-    description: '断水したときや避難所でトイレに困りにくくなる。',
+    name: '生米',
+    description: '白米はおいしい！元気が出る！',
   },
   {
     id: 'medication',
@@ -735,8 +741,54 @@ const escapePhoneChargingWaitDialogue: Dialogue = {
 
 const escapePhonePanicDialogue: Dialogue = {
   speaker: '主人公',
-  text: '焦り状態。',
+  text: 'どうしよう、どうしよう。スマホが使えない。',
 }
+
+const escapePhonePanicDialogues: Dialogue[] = [
+  escapePhonePanicDialogue,
+  {
+    speaker: '主人公',
+    text: '早く避難しないと、早く避難しないと。',
+  },
+  {
+    speaker: '主人公',
+    text: '急がなきゃ、急がなきゃ。',
+  },
+  {
+    speaker: '主人公',
+    text: '焦って時間を使ってしまった。冷静にならないと。',
+  },
+  {
+    speaker: '主人公',
+    text: 'まずは息を整えよう。周りを確認すれば、まだ進めるはずだ。',
+  },
+]
+
+const escapePanicWanderingDialogues: Dialogue[] = [
+  {
+    speaker: '主人公',
+    text: '道が分からない。どっちへ進めばいいんだ。',
+  },
+  {
+    speaker: '主人公',
+    text: '早く、早く。足だけが勝手に前へ出る。',
+  },
+  {
+    speaker: '主人公',
+    text: 'ここも通れない。別の道を探さないと。',
+  },
+  {
+    speaker: '主人公',
+    text: 'どれだけ歩いたんだ。避難所はどこだ。',
+  },
+]
+
+const escapePanicRoadBackgrounds = [
+  panicRoadBackground,
+  panicRoadBackground1,
+  panicRoadBackground2,
+  panicRoadBackground3,
+]
 
 
 function App() {
@@ -776,12 +828,18 @@ function App() {
   const [hasCheckedEscapeShelter, setHasCheckedEscapeShelter] = useState(false)
   const [escapeOutcome, setEscapeOutcome] = useState<EscapeOutcome>('true')
   const [isEscapeLightOn, setIsEscapeLightOn] = useState(false)
+  const [escapeWaterLevel, setEscapeWaterLevel] = useState(1)
+  const [escapeFoodLevel, setEscapeFoodLevel] = useState(1)
+  const [escapeProgressOverride, setEscapeProgressOverride] = useState<number | null>(null)
   const [escapeRouteChoiceStage, setEscapeRouteChoiceStage] =
     useState<EscapeRouteChoiceStage>(null)
   const [escapePhonePowerState, setEscapePhonePowerState] =
     useState<EscapePhonePowerState>('normal')
   const [escapePhonePromptStage, setEscapePhonePromptStage] =
     useState<EscapePhonePromptStage>(null)
+  const [escapePanicDialogueIndex, setEscapePanicDialogueIndex] = useState(0)
+  const [escapePanicRoadIndex, setEscapePanicRoadIndex] = useState<number | null>(null)
+  const [isEscapePanicFading, setIsEscapePanicFading] = useState(false)
   const [hoveredEscapeRouteChoice, setHoveredEscapeRouteChoice] = useState<
     'right' | 'left' | null
   >(null)
@@ -829,6 +887,7 @@ function App() {
 
   const isStart = screen === 'start'
   const isBookWarning = screen === 'book-warning'
+  const isFutureBookCut = screen === 'future-book-cut'
   const isRoomIntro = screen === 'room-intro'
   const isPreparation = screen === 'preparation'
   const isBackpack = screen === 'backpack'
@@ -935,19 +994,23 @@ function App() {
 
   // 部屋対策の達成数。今後のエンディング判定や結果画面に使える。
   const completedRoomMeasureCount = Object.values(roomMeasureFlags).filter(Boolean).length
-  const escapeProgressPercent =
+  const baseEscapeProgressPercent =
     escapeOutcome === 'bad'
       ? 60 + ((escapeProgressPercentByStep[currentEscapeStep.id] ?? 0) / 100) * 30
       : escapeProgressPercentByStep[currentEscapeStep.id] ?? 0
+  const escapeProgressPercent = escapeProgressOverride ?? baseEscapeProgressPercent
   const isEscapeNightBackground = escapeProgressPercent >= 60
   const currentEscapeBackground =
-    isEscapeNightBackground
+    escapePanicRoadIndex !== null
+      ? escapePanicRoadBackgrounds[escapePanicRoadIndex]
+      : isEscapeNightBackground
       ? isEscapeLightOn
         ? currentEscapeStep.lightBackground
         : currentEscapeStep.nightBackground
       : currentEscapeStep.background
-  const escapeWaterLevel = 1
-  const escapeFoodLevel = 1
+  const isEscapePanicActive = escapePhonePromptStage === 'panic'
+  const isEscapePanicWandering =
+    isEscapePanicActive && escapePanicDialogueIndex === 2
   const isEscapeRouteChoiceOpen = escapeRouteChoiceStage !== null
   const canAdvanceEscapeRouteText =
     escapeRouteChoiceStage === 'warning' || escapeRouteChoiceStage === 'prompt'
@@ -991,6 +1054,7 @@ function App() {
     canAdvanceEscapePhonePrompt ||
     isBookWarning ||
     isRoomIntro ||
+    isFutureBookCut ||
     isNight ||
     isDayStart ||
     isQuakeArrival ||
@@ -1005,6 +1069,8 @@ function App() {
     ? currentPreparationGuideStep.dialogue
     : isBookWarning
       ? bookWarningDialogues[dialogueIndex]
+    : isFutureBookCut
+      ? bookWarningDialogues[0]
     : isRoomIntro
       ? roomIntroDialogues[roomIntroIndex]
       : isNight
@@ -1100,7 +1166,9 @@ function App() {
                     : escapePhonePromptStage === 'charging-wait'
                       ? escapePhoneChargingWaitDialogue
                       : escapePhonePromptStage === 'panic'
-                        ? escapePhonePanicDialogue
+                        ? escapePanicRoadIndex !== null
+                          ? escapePanicWanderingDialogues[escapePanicRoadIndex]
+                          : escapePhonePanicDialogues[escapePanicDialogueIndex]
                         : escapeRouteChoiceStage === 'warning'
                           ? escapeRouteWarningDialogue
                           : escapeRouteChoiceStage === 'prompt'
@@ -1288,6 +1356,61 @@ function App() {
       return [...current, dialogue]
     })
   }
+
+  useEffect(() => {
+    if (escapePhonePromptStage !== 'panic' || escapePanicDialogueIndex !== 2) {
+      return
+    }
+
+    setEscapeProgressOverride(40)
+    setEscapePanicRoadIndex(null)
+
+    const timers: number[] = []
+    const addPanicLog = (dialogue: Dialogue) => {
+      setDialogueLog((current) => {
+        const latest = current.at(-1)
+
+        if (latest?.speaker === dialogue.speaker && latest.text === dialogue.text) {
+          return current
+        }
+
+        return [...current, dialogue]
+      })
+    }
+    const showPanicFade = () => {
+      setIsEscapePanicFading(true)
+      timers.push(window.setTimeout(() => setIsEscapePanicFading(false), 720))
+    }
+
+    escapePanicWanderingDialogues.forEach((dialogue, index) => {
+      timers.push(
+        window.setTimeout(
+          () => {
+            showPanicFade()
+            setEscapePanicRoadIndex(index)
+            addPanicLog(dialogue)
+          },
+          2000 + index * 2000,
+        ),
+      )
+    })
+
+    timers.push(
+      window.setTimeout(() => {
+        showPanicFade()
+        const aftermathDialogue = escapePhonePanicDialogues[3]
+
+        setEscapePanicRoadIndex(null)
+        setEscapePanicDialogueIndex(3)
+        addPanicLog(aftermathDialogue)
+      }, 10000),
+    )
+
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer))
+      setIsEscapePanicFading(false)
+    }
+  }, [escapePhonePromptStage, escapePanicDialogueIndex])
 
   const playSound = (src: string, volume: number) => {
     const audio = new Audio(src)
@@ -1666,6 +1789,11 @@ function App() {
     setScreen('escape')
     setEscapeOutcome('true')
     setIsEscapeLightOn(false)
+    setEscapeWaterLevel(1)
+    setEscapeFoodLevel(1)
+    setEscapeProgressOverride(null)
+    setEscapePanicDialogueIndex(0)
+    setEscapePanicRoadIndex(null)
     resetEscapeFlow()
     setHoveredAction(null)
     setHoveredItem(null)
@@ -1737,6 +1865,8 @@ function App() {
         addDialogueLog(escapeBackpackPromptDialogue)
       } else {
         setEscapePhonePromptStage('panic')
+        setEscapePanicDialogueIndex(0)
+        setEscapeWaterLevel(0.35)
         addDialogueLog(escapePhonePanicDialogue)
       }
 
@@ -1770,8 +1900,31 @@ function App() {
     }
 
     if (escapePhonePromptStage === 'panic') {
-      setEscapePhonePromptStage(null)
+      if (escapePanicDialogueIndex === 2) {
+        setHoveredAction(null)
+        return
+      }
+
+      if (escapePanicDialogueIndex >= escapePhonePanicDialogues.length - 1) {
+        setHoveredAction(null)
+        return
+      }
+
+      const nextPanicDialogueIndex = escapePanicDialogueIndex + 1
+
+      if (nextPanicDialogueIndex < escapePhonePanicDialogues.length) {
+        setEscapePanicDialogueIndex(nextPanicDialogueIndex)
+        addDialogueLog(escapePhonePanicDialogues[nextPanicDialogueIndex])
+      }
+
       setHoveredAction(null)
+      return
+    }
+
+    if (isFutureBookCut) {
+      setScreen('book-warning')
+      setDialogueIndex(1)
+      addDialogueLog(bookWarningDialogues[1])
       return
     }
 
@@ -1793,6 +1946,11 @@ function App() {
 
     if (isBookWarning) {
       const nextIndex = dialogueIndex + 1
+
+      if (dialogueIndex === 0) {
+        setScreen('future-book-cut')
+        return
+      }
 
       setDialogueIndex(nextIndex)
       addDialogueLog(bookWarningDialogues[nextIndex])
@@ -1925,6 +2083,11 @@ function App() {
         setScreen('escape')
         setEscapeOutcome(isFurnitureFastenerUsed ? 'true' : 'bad')
         setIsEscapeLightOn(false)
+        setEscapeWaterLevel(1)
+        setEscapeFoodLevel(1)
+        setEscapeProgressOverride(null)
+        setEscapePanicDialogueIndex(0)
+        setEscapePanicRoadIndex(null)
         resetEscapeFlow()
         setHasCheckedEscapeShelter(false)
         setPostDisasterDialogueIndex(0)
@@ -2058,11 +2221,17 @@ function App() {
           isEscapeBackpackPromptActive ? 'is-escape-backpack-guide' : ''
         } ${
           isEscapeRouteChoiceOpen ? 'is-escape-choice' : ''
+        } ${
+          isEscapePanicActive ? 'is-escape-panic' : ''
         }`}
         style={{
           backgroundImage: `url(${
             isBookWarning
-              ? bookWarningBackground
+              ? dialogueIndex === 1
+                ? futureBookCutBackground
+                : bookWarningBackground
+              : isFutureBookCut
+                ? futureBookCutBackground
               : isStart
                 ? startBackground
               : isBackpack
@@ -2168,7 +2337,12 @@ function App() {
           </div>
         )}
 
-        {!isStart && !shouldHideGlobalControls && !isEscapeRouteChoiceOpen && (
+        {isEscapePanicFading && <div className="escape-panic-fade" aria-hidden="true" />}
+
+        {!isStart &&
+          !shouldHideGlobalControls &&
+          !isEscapeRouteChoiceOpen &&
+          !isEscapePanicWandering && (
           <button
             type="button"
             className="ui-toggle"
@@ -2178,7 +2352,11 @@ function App() {
           </button>
         )}
 
-        {!isStart && !isUiHidden && !shouldHideGlobalControls && !isEscapeRouteChoiceOpen && (
+        {!isStart &&
+          !isUiHidden &&
+          !shouldHideGlobalControls &&
+          !isEscapeRouteChoiceOpen &&
+          !isEscapePanicWandering && (
           <button
             type="button"
             className={`log-toggle ${isBackpack ? 'is-backpack' : ''}`}
@@ -2329,7 +2507,7 @@ function App() {
           </>
         )}
 
-        {isEscape && !isUiHidden && !isEscapeRouteChoiceOpen && (
+        {isEscape && !isUiHidden && !isEscapeRouteChoiceOpen && !isEscapePanicWandering && (
           <>
             <div className="escape-progress-panel" aria-label="時間経過">
               <span>経過時間</span>
@@ -2345,19 +2523,27 @@ function App() {
               </div>
             </div>
             <aside className="escape-supply-status" aria-label="水分と空腹の状態">
-              <div className={escapeWaterLevel > 0 ? 'is-available' : 'is-empty'}>
+              <div
+                className={`${
+                  escapeWaterLevel > 0 ? 'is-available' : 'is-empty'
+                } ${escapeWaterLevel > 0 && escapeWaterLevel < 1 ? 'is-low' : ''}`}
+              >
                 <span>水分</span>
                 <strong className="escape-vertical-gauge" aria-hidden="true">
                   <span style={{ height: `${escapeWaterLevel * 100}%` }} />
                 </strong>
               </div>
-              <div className={escapeFoodLevel > 0 ? 'is-available' : 'is-empty'}>
+              <div
+                className={`${
+                  escapeFoodLevel > 0 ? 'is-available' : 'is-empty'
+                } ${escapeFoodLevel > 0 && escapeFoodLevel < 1 ? 'is-low' : ''}`}
+              >
                 <span>空腹</span>
                 <strong className="escape-vertical-gauge" aria-hidden="true">
                   <span style={{ height: `${escapeFoodLevel * 100}%` }} />
                 </strong>
               </div>
-              {isEscapeNightBackground && (
+              {isEscapeNightBackground && !isEscapePanicActive && (
                 <button
                   type="button"
                   className={`escape-light-toggle ${isEscapeLightOn ? 'is-on' : ''}`}
@@ -2368,6 +2554,7 @@ function App() {
               )}
             </aside>
             <EscapeControls
+              disabled={isEscapePanicActive}
               onHoverAction={setHoveredAction}
               onOpenPhone={handleOpenPhone}
               onOpenBackpack={() => {
@@ -3216,7 +3403,7 @@ export default App
 //   },
 //   {
 //     id: 'portable-toilet',
-//     name: '簡易トイレ',
+//     name: '白米',
 //     description: '断水したときや避難所でトイレに困りにくくなる。',
 //   },
 //   {

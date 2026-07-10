@@ -5,23 +5,37 @@ type EscapeControlsProps = {
   onHoverAction: (action: 'phone' | 'backpack' | null) => void
   onOpenPhone: () => void
   onOpenBackpack: () => void
+  disabled?: boolean
 }
 
 export function EscapeControls({
   onHoverAction,
   onOpenPhone,
   onOpenBackpack,
+  disabled = false,
 }: EscapeControlsProps) {
+  const handleHover = (action: 'phone' | 'backpack' | null) => {
+    if (disabled) {
+      return
+    }
+
+    onHoverAction(action)
+  }
+
   return (
-    <div className="escape-action-icons" aria-label="脱出行動">
+    <div
+      className={`escape-action-icons ${disabled ? 'is-disabled' : ''}`}
+      aria-label="脱出行動"
+    >
       <button
         type="button"
         className="action-icon-button escape-icon-phone"
-        onMouseEnter={() => onHoverAction('phone')}
-        onMouseLeave={() => onHoverAction(null)}
-        onFocus={() => onHoverAction('phone')}
-        onBlur={() => onHoverAction(null)}
-        onClick={onOpenPhone}
+        onMouseEnter={() => handleHover('phone')}
+        onMouseLeave={() => handleHover(null)}
+        onFocus={() => handleHover('phone')}
+        onBlur={() => handleHover(null)}
+        onClick={disabled ? undefined : onOpenPhone}
+        aria-disabled={disabled}
         aria-label="スマホ"
       >
         <img src={phoneIcon} alt="" />
@@ -30,11 +44,12 @@ export function EscapeControls({
       <button
         type="button"
         className="action-icon-button escape-icon-backpack"
-        onMouseEnter={() => onHoverAction('backpack')}
-        onMouseLeave={() => onHoverAction(null)}
-        onFocus={() => onHoverAction('backpack')}
-        onBlur={() => onHoverAction(null)}
-        onClick={onOpenBackpack}
+        onMouseEnter={() => handleHover('backpack')}
+        onMouseLeave={() => handleHover(null)}
+        onFocus={() => handleHover('backpack')}
+        onBlur={() => handleHover(null)}
+        onClick={disabled ? undefined : onOpenBackpack}
+        aria-disabled={disabled}
         aria-label="リュック"
       >
         <img src={backpackIcon} alt="" />
