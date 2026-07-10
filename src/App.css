@@ -105,6 +105,18 @@
   }
 }
 
+.escape-panic-overwhelm {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 46%, transparent 0 22%, rgba(120, 0, 0, 0.42) 56%, rgba(120, 0, 0, 0.82) 100%),
+    radial-gradient(circle at 50% 50%, transparent 0 30%, rgba(0, 0, 0, 0.56) 74%, rgba(0, 0, 0, 0.94) 100%),
+    rgba(60, 0, 0, 0.22);
+  transition: opacity 0.8s ease;
+}
+
 .scene.is-shaking {
   animation: quake-background-shake 0.34s cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite;
 }
