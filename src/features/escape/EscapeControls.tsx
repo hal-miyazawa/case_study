@@ -7,6 +7,7 @@ type EscapeControlsProps = {
   onOpenBackpack: () => void
   disabled?: boolean
   isPhoneUnavailable?: boolean
+  phoneNotificationCount?: number
 }
 
 export function EscapeControls({
@@ -15,6 +16,7 @@ export function EscapeControls({
   onOpenBackpack,
   disabled = false,
   isPhoneUnavailable = false,
+  phoneNotificationCount = 0,
 }: EscapeControlsProps) {
   const handleHover = (action: 'phone' | 'backpack' | null) => {
     if (disabled) {
@@ -43,6 +45,9 @@ export function EscapeControls({
         aria-label="スマホ"
       >
         <img src={phoneIcon} alt="" />
+        {phoneNotificationCount > 0 && (
+          <span className="phone-notification-badge">{phoneNotificationCount}</span>
+        )}
         <span>スマホ</span>
       </button>
       <button

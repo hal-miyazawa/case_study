@@ -3,7 +3,7 @@ import shopBackground from '../assets/backgrounds/ショップ画面.png'
 import shopBackground1 from '../assets/backgrounds/ショップ画面1.png'
 import shopBackground2 from '../assets/backgrounds/ショップ画面2.png'
 import shopBackground3 from '../assets/backgrounds/ショップ画面3.png'
-import itemIcon from '../assets/icons/item.png'
+import { shopItemIcons } from '../data/shopItemIcons'
 import './Shop.css'
 
 // 商品を一意に識別するIDの型。
@@ -43,6 +43,10 @@ type ShopScreenProps = {
   // 商品IDごとの購入個数。
   // 0なら未購入、1以上なら購入済みとして表示する。
   purchasedItemCounts: Record<ItemId, number>
+
+  dailyPurchaseLimit: number
+  remainingPurchases: number
+  purchaseLimitMessage: string
 }
 
 // ショップで切り替えられる3種類の商品カテゴリ。
@@ -84,37 +88,37 @@ const items: Record<Category, ShopItem[]> = {
     {
       id: 'furniture-fasteners',
       name: '家具固定器具',
-      image: itemIcon,
+      image: shopItemIcons['furniture-fasteners'],
       description: '家具を壁に固定するための器具です。',
     },
     {
       id: 'window-film',
       name: '窓ガラス飛散防止フィルム',
-      image: itemIcon,
+      image: shopItemIcons['window-film'],
       description: '地震などの際、窓ガラスが飛散するのを防ぐフィルムです。',
     },
     {
       id: 'flashlight',
       name: '懐中電灯',
-      image: itemIcon,
+      image: shopItemIcons.flashlight,
       description: '非常時や暗闇で使用する携帯照明です。',
     },
     {
       id: 'radio',
       name: '携帯ラジオ',
-      image: itemIcon,
+      image: shopItemIcons.radio,
       description: '非常時に情報を得るための携帯ラジオです。',
     },
     {
       id: 'power-bank',
       name: 'モバイルバッテリー',
-      image: itemIcon,
+      image: shopItemIcons['power-bank'],
       description: '機器の充電に使用するモバイルバッテリーです。',
     },
     {
       id: 'gloves-slippers',
       name: '軍手・厚底スリッパ',
-      image: itemIcon,
+      image: shopItemIcons['gloves-slippers'],
       description: '作業や非常時などに使用する保護具です。',
     },
   ],
@@ -122,37 +126,37 @@ const items: Record<Category, ShopItem[]> = {
     {
       id: 'water',
       name: '飲料水',
-      image: itemIcon,
+      image: shopItemIcons.water,
       description: '非常時の水分補給に必要な飲料水です。',
     },
     {
       id: 'emergency-food',
       name: '非常食セット',
-      image: itemIcon,
+      image: shopItemIcons['emergency-food'],
       description: '非常時に使用する食料品です。',
     },
     {
       id: 'canned-food',
       name: '缶詰',
-      image: itemIcon,
+      image: shopItemIcons['canned-food'],
       description: '長期保存が可能な缶詰食品です。',
     },
     {
       id: 'nutrition-supplements',
       name: '栄養補助食品',
-      image: itemIcon,
+      image: shopItemIcons['nutrition-supplements'],
       description: '栄養バランスを整えるための補助食品です。',
     },
     {
       id: 'retort-rice',
       name: 'レトルトご飯',
-      image: itemIcon,
+      image: shopItemIcons['retort-rice'],
       description: '便利で長期保存が可能な食料品です。',
     },
     {
       id: 'portable-toilet',
       name: '生米',
-      image: itemIcon,
+      image: shopItemIcons['portable-toilet'],
       description: '白米はおいしい！元気が出る！',
     },
   ],
@@ -160,37 +164,37 @@ const items: Record<Category, ShopItem[]> = {
     {
       id: 'first-aid-kit',
       name: '救急セット',
-      image: itemIcon,
+      image: shopItemIcons['first-aid-kit'],
       description: '救急時に使用するセットです。',
     },
     {
       id: 'medication',
       name: '頭痛薬',
-      image: itemIcon,
+      image: shopItemIcons.medication,
       description: '日常的に使用する頭痛薬です。',
     },
     {
       id: 'disinfectant',
       name: '消毒液・ウェットシート',
-      image: itemIcon,
+      image: shopItemIcons.disinfectant,
       description: '消毒や清掃に使用する製品です。',
     },
     {
       id: 'mask',
       name: 'マスク',
-      image: itemIcon,
+      image: shopItemIcons.mask,
       description: '感染症予防に使用するマスクです。',
     },
     {
       id: 'thermometer',
       name: '体温計',
-      image: itemIcon,
+      image: shopItemIcons.thermometer,
       description: '体温を測定するための体温計です。',
     },
     {
       id: 'cooling-blanket',
       name: '冷却シート・保温シート',
-      image: itemIcon,
+      image: shopItemIcons['cooling-blanket'],
       description: '体温を調整するために使用するシートです。',
     },
   ],
@@ -202,6 +206,9 @@ export default function ShopScreen({
   onBuy,
   onBack,
   purchasedItemCounts,
+  dailyPurchaseLimit,
+  remainingPurchases,
+  purchaseLimitMessage,
 }: ShopScreenProps) {
   // 現在選択されているカテゴリ。
   const [category, setCategory] = useState<Category>('safety')
@@ -212,14 +219,21 @@ export default function ShopScreen({
   // 購入確認中の商品。nullのときは購入確認モーダルを表示しない。
   const [selectedItem, setSelectedItem] = useState<ShopItem | null>(null)
   const [isSoldOutNoticeOpen, setIsSoldOutNoticeOpen] = useState(false)
+  const [isPurchaseLimitNoticeOpen, setIsPurchaseLimitNoticeOpen] = useState(false)
   const [backgroundIndex, setBackgroundIndex] = useState(0)
+  const isPurchaseLimitReached = remainingPurchases <= 0
+  const purchasedToday = dailyPurchaseLimit - remainingPurchases
+  const purchaseLimitReachedMessage =
+    '今日はもう買えるものはない。必要なものを持って帰ろう。'
 
   // メッセージボックスに表示する説明文。
   const messageText = selectedItem
     ? selectedItem.description
     : hoverItem
       ? hoverItem.description
-      : 'アイテムを選択してください。'
+      : isPurchaseLimitReached
+        ? purchaseLimitReachedMessage
+        : purchaseLimitMessage
 
   // 「はい」を押したときの購入処理。
   // 購入数そのものはApp.tsx側で更新する。
@@ -244,6 +258,23 @@ export default function ShopScreen({
           部屋に戻る
         </button>
       </header>
+
+      <div
+        className="shop-purchase-status"
+        aria-label="本日の購入可能数"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <span>購入枠</span>
+        <strong>あと{remainingPurchases}/{dailyPurchaseLimit}</strong>
+        <ol aria-hidden="true">
+          {Array.from({ length: dailyPurchaseLimit }, (_, index) => (
+            <li
+              key={index}
+              className={index < purchasedToday ? 'is-used' : ''}
+            />
+          ))}
+        </ol>
+      </div>
 
       <section
         className="shop-panel"
@@ -281,11 +312,20 @@ export default function ShopScreen({
                   onClick={() => {
                     if (isPurchased) {
                       setSelectedItem(null)
+                      setIsPurchaseLimitNoticeOpen(false)
                       setIsSoldOutNoticeOpen(true)
                       return
                     }
 
+                    if (isPurchaseLimitReached) {
+                      setSelectedItem(null)
+                      setIsSoldOutNoticeOpen(false)
+                      setIsPurchaseLimitNoticeOpen(true)
+                      return
+                    }
+
                     setIsSoldOutNoticeOpen(false)
+                    setIsPurchaseLimitNoticeOpen(false)
                     setSelectedItem(item)
                   }}
                   aria-label={
@@ -323,6 +363,27 @@ export default function ShopScreen({
               </button>
               <button type="button" onClick={() => setSelectedItem(null)}>
                 いいえ
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {isPurchaseLimitNoticeOpen && (
+        <div
+          className="confirm-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <section className="confirm-modal" aria-label="購入上限">
+            <p>{purchaseLimitReachedMessage}</p>
+            <div className="confirm-actions">
+              <button
+                type="button"
+                onClick={() => setIsPurchaseLimitNoticeOpen(false)}
+              >
+                閉じる
               </button>
             </div>
           </section>

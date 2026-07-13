@@ -12,21 +12,32 @@
 }
 
 /* ── ベース ── */
+#root:has(.shop-bg) {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #111;
+}
+
 .shop-bg {
   position: relative;
-  --side-space: 8vw;
-  --message-bottom: 4.5vh;
-  --message-height: 23vh;
-  --layout-gap: 1.8vh;
-  --control-height: 8vh;
+  container-type: size;
+  --side-space: 8cqw;
+  --message-bottom: 4.5cqh;
+  --message-height: 23cqh;
+  --layout-gap: 1.8cqh;
+  --control-height: 8cqh;
   --control-bottom: calc(var(--message-bottom) + var(--message-height) + var(--layout-gap));
-  --control-width: 17vw;
-  --shop-panel-left: 46vw;
+  --control-width: 17cqw;
+  --shop-panel-left: 46cqw;
   --shop-panel-right: var(--side-space);
-  --shop-panel-top: 13vh;
+  --shop-panel-top: 18cqh;
   --shop-panel-bottom: calc(var(--message-bottom) + var(--message-height) + var(--layout-gap));
-  width: 100vw;
-  height: 100svh;
+  width: min(100vw, calc(100svh * 16 / 9));
+  height: min(100svh, calc(100vw * 9 / 16));
+  min-height: 0;
+  margin: 0;
   overflow: hidden;
   background-size: cover;
   background-position: center;
@@ -50,7 +61,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 2.4vh 2.4vw 2vh;
+  padding: 2.4cqh 2.4cqw 2cqh;
   border: 1.5px solid rgba(249, 115, 22, 0.28);
   border-radius: 12px;
   background: var(--shop-panel-bg);
@@ -62,19 +73,74 @@
   backdrop-filter: blur(6px);
 }
 
+.shop-purchase-status {
+  position: absolute;
+  z-index: 3;
+  top: calc(var(--shop-panel-top) - 7.1cqh);
+  right: var(--shop-panel-right);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 7px 14px;
+  border: 1.5px solid rgba(249, 115, 22, 0.28);
+  border-radius: 999px;
+  background: var(--shop-panel-bg);
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+  box-shadow:
+    0 0 0 1px rgba(249, 115, 22, 0.10),
+    0 8px 22px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(6px);
+}
+
+.shop-purchase-status span {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.shop-purchase-status strong {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.shop-purchase-status ol {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 0 2px;
+  padding: 0;
+  list-style: none;
+}
+
+.shop-purchase-status li {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.shop-purchase-status li.is-used {
+  border-color: rgba(249, 115, 22, 0.62);
+  background: rgba(249, 115, 22, 0.58);
+}
+
 /* ── カテゴリタブ ── */
 .shop-category-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0;
-  margin-bottom: 2vh;
+  margin-bottom: 1.2cqh;
   border-bottom: 1.5px solid var(--shop-border);
 }
 
 .shop-category-tab {
   position: relative;
-  min-height: 5vh;
-  padding: 0 0.8vw 1.2vh;
+  min-height: 5cqh;
+  padding: 0 0.8cqw 1.2cqh;
   border: 0;
   background: transparent;
   color: var(--shop-text-dim);
@@ -132,7 +198,7 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-rows: repeat(3, minmax(0, 1fr));
-  gap: 1.2vh 0.8vw;
+  gap: 0.85cqh 0.8cqw;
   flex: 1;
   min-height: 0;
   margin: 0;
@@ -147,8 +213,8 @@
   height: 100%;
   display: flex;
   align-items: center;
-  gap: 0.9vw;
-  padding: 0.9vh 1vw;
+  gap: 0.9cqw;
+  padding: 0.9cqh 1cqw;
   border: 1.5px solid var(--shop-border);
   border-left: 3px solid rgba(249, 115, 22, 0.35);
   border-radius: 8px;
@@ -197,29 +263,22 @@
 
 /* ── アイコンスロット ── */
 .shop-item-icon-slot {
-  flex: 0 0 48px;
-  width: 48px;
-  height: 48px;
+  flex: 0 0 56px;
+  width: 56px;
+  height: 56px;
   display: grid;
   place-items: center;
-  border: 1.5px solid rgba(249, 115, 22, 0.32);
-  border-radius: 8px;
-  background:
-    linear-gradient(140deg, rgba(249, 115, 22, 0.18) 0%, rgba(0, 0, 0, 0.28) 60%);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+  border-radius: 14px;
   overflow: hidden;
-  transition: border-color 0.18s ease;
-}
-
-.shop-list-item:hover .shop-item-icon-slot,
-.shop-list-item:focus-visible .shop-item-icon-slot {
-  border-color: var(--shop-accent);
 }
 
 .list-icon {
-  width: 36px;
-  height: 36px;
+  width: 56px;
+  height: 56px;
   object-fit: contain;
+  transform: scale(1.18);
+  transform-origin: center;
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.45));
 }
 
 /* ── アイテム名 ── */
