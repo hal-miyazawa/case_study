@@ -6,6 +6,7 @@ type EscapeControlsProps = {
   onOpenPhone: () => void
   onOpenBackpack: () => void
   disabled?: boolean
+  isPhoneUnavailable?: boolean
 }
 
 export function EscapeControls({
@@ -13,6 +14,7 @@ export function EscapeControls({
   onOpenPhone,
   onOpenBackpack,
   disabled = false,
+  isPhoneUnavailable = false,
 }: EscapeControlsProps) {
   const handleHover = (action: 'phone' | 'backpack' | null) => {
     if (disabled) {
@@ -29,7 +31,9 @@ export function EscapeControls({
     >
       <button
         type="button"
-        className="action-icon-button escape-icon-phone"
+        className={`action-icon-button escape-icon-phone ${
+          isPhoneUnavailable ? 'is-unavailable' : ''
+        }`}
         onMouseEnter={() => handleHover('phone')}
         onMouseLeave={() => handleHover(null)}
         onFocus={() => handleHover('phone')}
