@@ -133,6 +133,7 @@ import ShopScreen, { type ItemId } from './screens/ShopScreen'
 
 type Screen =
   | 'start'
+  | 'zoom-calibration'
   | 'book-warning'
   | 'future-book-cut'
   | 'room-intro'
@@ -163,6 +164,64 @@ type Dialogue = {
   speaker: string
   text: string
 }
+
+const MAX_DIALOGUE_TEXT_LENGTH = 28
+
+const splitDialogueText = (text: string) => {
+  const characters = Array.from(text)
+
+  if (characters.length <= MAX_DIALOGUE_TEXT_LENGTH) {
+    return [text]
+  }
+
+  const pages: string[] = []
+  let startIndex = 0
+
+  while (startIndex < characters.length) {
+    const remainingCharacters = characters.length - startIndex
+
+    if (remainingCharacters <= MAX_DIALOGUE_TEXT_LENGTH) {
+      pages.push(characters.slice(startIndex).join('').trim())
+      break
+    }
+
+    const chunk = characters.slice(
+      startIndex,
+      startIndex + MAX_DIALOGUE_TEXT_LENGTH,
+    )
+    const breakCandidates = ['。', '！', '？', '、', '，', ' ']
+    let breakLength = MAX_DIALOGUE_TEXT_LENGTH
+
+    for (const delimiter of breakCandidates) {
+      const delimiterIndex = chunk.lastIndexOf(delimiter)
+
+      if (delimiterIndex >= 8) {
+        breakLength = delimiterIndex + 1
+        break
+      }
+    }
+
+    pages.push(characters.slice(startIndex, startIndex + breakLength).join('').trim())
+    startIndex += breakLength
+
+    while (characters[startIndex] === ' ') {
+      startIndex += 1
+    }
+  }
+
+  return pages.filter((page) => page.length > 0)
+}
+
+const zoomCalibrationDialogues: Dialogue[] = [
+  {
+    speaker: 'ガイド',
+    text: '画面の拡大率を調整してください。',
+  },
+  {
+    speaker: 'ガイド',
+    text: 'Ctrl + - / Ctrl + + でも拡大率を変更できます。',
+  },
+]
 
 type PreparationGuideTarget =
   | 'message'
@@ -1506,6 +1565,7 @@ function App() {
   const [screen, setScreen] = useState<Screen>('start')
   const [currentDay, setCurrentDay] = useState<StoryDay>(1)
   const [dialogueIndex, setDialogueIndex] = useState(0)
+  const [dialoguePageIndex, setDialoguePageIndex] = useState(0)
   const [roomIntroIndex, setRoomIntroIndex] = useState(0)
   const [nightDialogueIndex, setNightDialogueIndex] = useState(0)
   const [dayStartDialogueIndex, setDayStartDialogueIndex] = useState(0)
@@ -1591,8 +1651,7 @@ function App() {
   const [escapeGuideIndex, setEscapeGuideIndex] = useState(0)
   const [hasSeenEscapeGuide, setHasSeenEscapeGuide] = useState(false)
   const [hasSeenEscapeLightGuide, setHasSeenEscapeLightGuide] = useState(false)
-  const [isRoomChangePreviewPending, setIsRoomChangePreviewPending] =
-    useState(false)
+  const [, setIsRoomChangePreviewPending] = useState(false)
   const [roomChangePreviewDialogue, setRoomChangePreviewDialogue] =
     useState<Dialogue>(() => createRoomChangePreviewDialogue(false, false))
   const [dialogueLog, setDialogueLog] = useState<Dialogue[]>([
@@ -1633,6 +1692,7 @@ function App() {
   } = useEscapeFlow()
 
   const isStart = screen === 'start'
+  const isZoomCalibration = screen === 'zoom-calibration'
   const isBookWarning = screen === 'book-warning'
   const isFutureBookCut = screen === 'future-book-cut'
   const isRoomIntro = screen === 'room-intro'
@@ -1656,7 +1716,13 @@ function App() {
   const isEndingActions = screen === 'ending-actions'
   const isAfterBadEnd = isResultReview || isRealLifeMessage || isEndingActions
   const shouldHideGlobalControls =
-    isBadEnd || isTrueEnd || isNormalEnd || isUfoEnd || isFriendsEnd || isAfterBadEnd
+    isZoomCalibration ||
+    isBadEnd ||
+    isTrueEnd ||
+    isNormalEnd ||
+    isUfoEnd ||
+    isFriendsEnd ||
+    isAfterBadEnd
   const resultReviewBackground =
     resultReviewEndKind === 'bad'
       ? badEndBackground
@@ -1680,6 +1746,9 @@ function App() {
       ? fixedRoomMeasureBackgrounds[completedRoomMeasureAction]
       : roomMeasureBackgrounds[completedRoomMeasureAction]
     : null
+  const currentPreparationRoomBackground =
+    currentRoomMeasureBackground ??
+    (isFurnitureFastenerUsed ? fixedNormalRoomBackground : normalRoomBackground)
   const isMobileBatteryUsable =
     itemFlags['power-bank'].purchased > 0 && itemFlags['power-bank'].packed === 0
   const isCalmRecoveryUsable = escapeCalmRecoveryItemIds.some(
@@ -1822,6 +1891,20 @@ function App() {
     escapeNoWaterRoadIndex !== null ||
     escapeNoFoodRoadIndex !== null ||
     escapeNoFoodPanicLevel > 0
+  const resultReviewBgmSrc =
+    resultReviewEndKind === 'true'
+      ? trueEndBgm
+      : resultReviewEndKind === 'ufo'
+        ? ufoInsideSound
+        : resultReviewEndKind === 'normal' ||
+            resultReviewEndKind === 'hot-blood' ||
+            resultReviewEndKind === 'friends'
+          ? specialEndBgm
+          : resultReviewEndKind === 'bad'
+            ? badEndBgm
+            : isFurnitureFastenerUsed
+              ? trueEndBgm
+              : badEndBgm
   const activeBgmSrc = isUfoInsideAudioActive
     ? ufoInsideSound
     : isShop
@@ -1849,9 +1932,7 @@ function App() {
               : isBadEnd
                 ? badEndBgm
                 : isAfterBadEnd
-                  ? isFurnitureFastenerUsed
-                    ? trueEndBgm
-                    : badEndBgm
+                  ? resultReviewBgmSrc
                   : normalRoomBgm
   const shouldLoopActiveBgm = activeBgmSrc !== shelterArrivalSound
 
@@ -2099,6 +2180,8 @@ function App() {
       : escapeProgressPercentByStep[currentEscapeStep.id] ?? 0
   const escapeProgressPercent = escapeProgressOverride ?? baseEscapeProgressPercent
   const isEscapeNightBackground = escapeProgressPercent >= 60
+  const isShelterArrivalNightBackground =
+    isEscapeNightBackground || escapeOutcome === 'bad' || isHotBloodRescueComplete
   const isEscapeNightStart = escapeOutcome === 'bad'
   const currentEscapePanicRoadBackgrounds = isEscapeNightStart
     ? escapePanicRoadNightBackgrounds
@@ -2409,6 +2492,8 @@ function App() {
               ? currentEscapeStep.lightBackground
               : currentEscapeStep.nightBackground
             : currentEscapeStep.background
+  const isEscapeScreen25CrackActive =
+    escapeScreen25Stage === 'crack' || escapeScreen25Stage === 'crack-blocked'
   const isEscapePanicActive = escapePhonePromptStage === 'panic'
   const isEscapePanicVisualActive =
     isEscapePanicActive ||
@@ -2537,6 +2622,7 @@ function App() {
     canAdvanceEscapeRouteText ||
     canAdvanceGuideRoute ||
     canAdvanceEscapePhonePrompt ||
+    isZoomCalibration ||
     isBookWarning ||
     isRoomIntro ||
     isFutureBookCut ||
@@ -2559,6 +2645,8 @@ function App() {
       ? currentEscapeGuideStep.dialogue
     : escapeNoticeDialogue
       ? escapeNoticeDialogue
+    : isZoomCalibration
+      ? zoomCalibrationDialogues[dialogueIndex]
     : isBookWarning
       ? bookWarningDialogues[dialogueIndex]
     : escapeScreen25Stage === 'intro' || escapeScreen25Stage === 'choices'
@@ -2792,6 +2880,23 @@ function App() {
                                       : isEscape
                                         ? currentEscapeStep.dialogue
                                         : preparationDialogue
+  const currentDialoguePages = useMemo(
+    () => splitDialogueText(currentDialogue.text),
+    [currentDialogue.text],
+  )
+  const currentDialoguePageIndex = Math.min(
+    dialoguePageIndex,
+    currentDialoguePages.length - 1,
+  )
+  const currentDialogueText =
+    currentDialoguePages[currentDialoguePageIndex] ?? currentDialogue.text
+  const canAdvanceDialoguePage =
+    currentDialoguePageIndex < currentDialoguePages.length - 1
+
+  useEffect(() => {
+    setDialoguePageIndex(0)
+  }, [currentDialogue.speaker, currentDialogue.text])
+
   const isLastBookDialogue =
     isBookWarning && dialogueIndex === bookWarningDialogues.length - 1
   const isLastRoomIntroDialogue =
@@ -2816,6 +2921,7 @@ function App() {
     setScreen('start')
     setCurrentDay(1)
     setDialogueIndex(0)
+    setDialoguePageIndex(0)
     setRoomIntroIndex(0)
     setNightDialogueIndex(0)
     setDayStartDialogueIndex(0)
@@ -2893,8 +2999,9 @@ function App() {
   const handleStartGame = (developerMode = false) => {
     setIsAudioEnabled(true)
     setIsDeveloperMode(developerMode)
-    setScreen('book-warning')
-    addDialogueLog(bookWarningDialogues[0])
+    setDialogueIndex(0)
+    setScreen('zoom-calibration')
+    addDialogueLog(zoomCalibrationDialogues[0])
   }
 
   useEffect(() => {
@@ -3404,6 +3511,33 @@ function App() {
     return audio
   }
 
+  const startScreenShakeWithGroundRumble = () => {
+    setIsScreenShaking(true)
+
+    const rumbleAudio = playGroundRumbleSound()
+    const stopShaking = () => {
+      setIsScreenShaking(false)
+    }
+
+    rumbleAudio.addEventListener('ended', stopShaking, { once: true })
+    rumbleAudio.addEventListener('error', stopShaking, { once: true })
+    rumbleAudio.addEventListener(
+      'loadedmetadata',
+      () => {
+        if (Number.isFinite(rumbleAudio.duration)) {
+          window.setTimeout(stopShaking, rumbleAudio.duration * 1000 + 240)
+        }
+      },
+      { once: true },
+    )
+
+    window.setTimeout(() => {
+      if (rumbleAudio.paused && !rumbleAudio.ended) {
+        stopShaking()
+      }
+    }, 320)
+  }
+
   useEffect(() => {
     if (isUfoSuctionAudioActive) {
       playUfoSuctionSound()
@@ -3471,6 +3605,22 @@ function App() {
     setSelectedItem(item)
   }
 
+  const createNextRoomChangePreviewDialogue = (usedItemId?: ItemId) =>
+    createRoomChangePreviewDialogue(
+      usedItemId === 'furniture-fasteners' || isFurnitureFastenerUsed,
+      usedItemId === 'window-film' || isWindowFilmUsed,
+    )
+
+  const returnFromPreparationBackpack = () => {
+    setHoveredItem(null)
+    setSelectedItem(null)
+    setBackpackNoticeDialogue(null)
+    setIsRoomChangePreviewPending(false)
+
+    addDialogueLog(preparationDialogue)
+    setScreen('preparation')
+  }
+
   // リュック画面で「はい」を押したときの処理。
   // packedを使用済みflagとして扱い、同じアイテムは再使用できないようにする。
   const handlePackSelectedItem = () => {
@@ -3517,12 +3667,23 @@ function App() {
       selectedItem.id === 'furniture-fasteners' ||
       selectedItem.id === 'window-film'
     ) {
-      setRoomChangePreviewDialogue(
-        createRoomChangePreviewDialogue(
-          selectedItem.id === 'furniture-fasteners' || isFurnitureFastenerUsed,
-          selectedItem.id === 'window-film' || isWindowFilmUsed,
-        ),
+      const nextRoomChangePreviewDialogue = createNextRoomChangePreviewDialogue(
+        selectedItem.id,
       )
+
+      setRoomChangePreviewDialogue(nextRoomChangePreviewDialogue)
+
+      if (backpackReturnScreen !== 'escape') {
+        setIsRoomChangePreviewPending(false)
+        setHoveredItem(null)
+        setSelectedItem(null)
+        setBackpackNoticeDialogue(null)
+        setMeasureResultDialogue(nextRoomChangePreviewDialogue)
+        addDialogueLog(nextRoomChangePreviewDialogue)
+        setScreen('preparation')
+        return
+      }
+
       setIsRoomChangePreviewPending(true)
     }
 
@@ -3879,6 +4040,7 @@ function App() {
 
     setEscapeScreen25Stage('crack')
     setHoveredEscapeRouteChoice(null)
+    startScreenShakeWithGroundRumble()
     addDialogueLog({
       speaker: 'ナレーション',
       text: '少しここで人を待つことにした。',
@@ -4050,10 +4212,12 @@ function App() {
     playItemUseSound()
     triggerItemUseFlash()
     setMeasureResultDialogue(resultDialogue)
+    setIsRoomChangePreviewPending(false)
     addDialogueLog(resultDialogue)
 
     setSelectedMeasure(null)
     setIsMeasuresOpen(false)
+    setScreen('preparation')
   }
 
   const finishTransition = () => {
@@ -4738,6 +4902,30 @@ function App() {
       return
     }
 
+    if (isZoomCalibration) {
+      const nextIndex = dialogueIndex + 1
+
+      if (nextIndex < zoomCalibrationDialogues.length) {
+        setDialogueIndex(nextIndex)
+        addDialogueLog(zoomCalibrationDialogues[nextIndex])
+        return
+      }
+
+      setIsTransitioning(true)
+
+      window.setTimeout(() => {
+        setScreen('book-warning')
+        setDialogueIndex(0)
+        addDialogueLog(bookWarningDialogues[0])
+      }, 360)
+
+      window.setTimeout(() => {
+        setIsTransitioning(false)
+      }, 760)
+
+      return
+    }
+
     if (isFutureBookCut) {
       setScreen('book-warning')
       setDialogueIndex(1)
@@ -5095,6 +5283,11 @@ function App() {
       playTextBoxClickSound()
     }
 
+    if (canAdvanceDialoguePage) {
+      setDialoguePageIndex((current) => current + 1)
+      return
+    }
+
     handleNextDialogue()
   }
 
@@ -5119,11 +5312,15 @@ function App() {
     <main className="game-screen">
       <section
         className={`scene ${isStart ? 'is-start' : ''} ${
+          isZoomCalibration ? 'is-zoom-calibration' : ''
+        } ${
           isNight ? 'is-night' : ''
         } ${
           isAfterBadEnd ? 'is-ending-panel' : ''
         } ${
-          isScreenShaking && isPostDisaster ? 'is-shaking' : ''
+          isScreenShaking && (isPostDisaster || isEscapeScreen25CrackActive)
+            ? 'is-shaking'
+            : ''
         } ${
           isPreparationGuideActive ? 'is-preparation-guide' : ''
         } ${
@@ -5138,7 +5335,7 @@ function App() {
           isEscapeNightRoadVisible ? 'is-escape-night-road' : ''
         }`}
         style={{
-          backgroundImage: `url(${
+          backgroundImage: `url("${
             isBookWarning
               ? dialogueIndex === 1
                 ? futureBookCutBackground
@@ -5152,11 +5349,7 @@ function App() {
                   ? backpackEscapeBackground
                   : backpackBackground
                 : isRoomChangePreview
-                  ? currentRoomMeasureBackground
-                    ? currentRoomMeasureBackground
-                    : isFurnitureFastenerUsed
-                      ? fixedNormalRoomBackground
-                      : normalRoomBackground
+                  ? currentPreparationRoomBackground
                 : isPostDisaster
                   ? isFurnitureFastenerUsed
                     ? fixedAfterDisasterBackground
@@ -5164,7 +5357,7 @@ function App() {
                 : isEscape
                     ? currentEscapeBackground
                   : isShelterArrival
-                    ? escapeOutcome === 'bad' || isHotBloodRescueComplete
+                    ? isShelterArrivalNightBackground
                       ? shelterArrivalNightBackground
                       : shelterArrivalBackground
                   : isBadEnd
@@ -5183,18 +5376,16 @@ function App() {
                             ? resultReviewBackground
                       : isNight
                         ? nightRoomBackground
-                        : currentRoomMeasureBackground
-                          ? currentRoomMeasureBackground
-                        : isFurnitureFastenerUsed
-                          ? fixedNormalRoomBackground
-                          : normalRoomBackground
-          })`,
+                        : currentPreparationRoomBackground
+          }")`,
         }}
         aria-label={
           isBookWarning
             ? '予告本を見る場面'
             : isStart
               ? 'スタート画面'
+            : isZoomCalibration
+              ? '表示調整画面'
             : isBackpack
               ? 'リュックを整理する場面'
             : isRoomChangePreview
@@ -5243,7 +5434,49 @@ function App() {
             >
               開発者モード
             </button>
+            <p className="start-display-note">
+              推奨表示: ブラウザズーム80%
+              <br />
+              画面が大きく表示される場合は、ズームを80%にしてください。
+            </p>
           </>
+        )}
+
+        {isZoomCalibration && (
+          <button
+            type="button"
+            className="zoom-calibration-notice"
+            onClick={handleNextDialogue}
+          >
+            {dialogueIndex === 0 ? (
+              <>
+                <span className="zoom-calibration-notice-label">注意</span>
+                <span>
+                  画面が大きく表示される場合は、ブラウザの拡大率を調整してください。
+                </span>
+                <span className="zoom-calibration-notice-next">クリックで詳細へ</span>
+              </>
+            ) : (
+              <>
+                <span className="zoom-calibration-notice-label">調整方法</span>
+                <span>フルHD環境では80%を目安にしてください。</span>
+                <span>キーボードでもブラウザの拡大率を変更できます。</span>
+                <span className="zoom-calibration-shortcuts">
+                  <kbd>Ctrl</kbd>
+                  <span>+</span>
+                  <kbd>-</kbd>
+                  <span>で小さく</span>
+                </span>
+                <span className="zoom-calibration-shortcuts">
+                  <kbd>Ctrl</kbd>
+                  <span>+</span>
+                  <kbd>+</kbd>
+                  <span>で大きく</span>
+                </span>
+                <span className="zoom-calibration-notice-next">クリックで本編へ</span>
+              </>
+            )}
+          </button>
         )}
 
         <div
@@ -6166,26 +6399,7 @@ function App() {
                 <button
                   type="button"
                   className="game-header-action"
-                  onClick={() => {
-                    setHoveredItem(null)
-                    setSelectedItem(null)
-                    if (isRoomChangePreviewPending) {
-                      const nextRoomChangePreviewDialogue =
-                        createRoomChangePreviewDialogue(
-                          isFurnitureFastenerUsed,
-                          isWindowFilmUsed,
-                        )
-
-                      setIsRoomChangePreviewPending(false)
-                      setRoomChangePreviewDialogue(nextRoomChangePreviewDialogue)
-                      addDialogueLog(nextRoomChangePreviewDialogue)
-                      setScreen('room-change-preview')
-                      return
-                    }
-
-                    addDialogueLog(preparationDialogue)
-                    setScreen('preparation')
-                  }}
+                  onClick={returnFromPreparationBackpack}
                 >
                   対策に戻る
                 </button>
@@ -6522,6 +6736,7 @@ function App() {
         )}
 
         {!isStart &&
+          !isZoomCalibration &&
           !isEndingActions &&
           !isResultReview &&
           !isRealLifeMessage &&
@@ -6534,12 +6749,16 @@ function App() {
               isUiHidden && !shouldHideGlobalControls ? 'is-hidden' : ''
             }`}
             onClick={handleMessageBoxClick}
-            aria-label={canAdvanceDialogue ? '次のセリフへ進む' : '自由行動を選ぶ'}
+            aria-label={
+              canAdvanceDialoguePage || canAdvanceDialogue
+                ? '次のセリフへ進む'
+                : '自由行動を選ぶ'
+            }
           >
             <span className="nameplate">{currentDialogue.speaker}</span>
-            <span className="dialogue-text">{currentDialogue.text}</span>
+            <span className="dialogue-text">{currentDialogueText}</span>
             <span className="next-mark">
-              {canAdvanceDialogue ? '▼' : ''}
+              {canAdvanceDialoguePage || canAdvanceDialogue ? '▼' : ''}
             </span>
           </button>
         )}
