@@ -271,6 +271,67 @@
   opacity: 1;
 }
 
+.scene-transition.is-chapter-title {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.055), transparent 42%),
+    rgba(10, 10, 10, 0.78);
+  backdrop-filter: grayscale(1) brightness(0.42) contrast(1.08);
+}
+
+.transition-background {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: grayscale(1) brightness(0.42) contrast(1.08);
+  transform: scale(1.01);
+}
+
+.scene-transition.is-chapter-title::before,
+.scene-transition.is-chapter-title::after {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.scene-transition.is-chapter-title::before {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.045) 0,
+      rgba(255, 255, 255, 0.045) 1px,
+      transparent 1px,
+      transparent 7px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.13) 0,
+      rgba(0, 0, 0, 0.13) 1px,
+      transparent 1px,
+      transparent 11px
+    );
+  mix-blend-mode: soft-light;
+}
+
+.scene-transition.is-chapter-title::after {
+  background:
+    radial-gradient(circle at 50% 48%, transparent 0 36%, rgba(0, 0, 0, 0.48) 72%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.22), transparent 18% 82%, rgba(0, 0, 0, 0.22));
+}
+
+.scene-transition.is-active.is-chapter-title::before {
+  animation: chapter-paper-grain 2.42s ease both;
+}
+
+.scene-transition.is-active.is-chapter-title::after {
+  animation: chapter-paper-vignette 2.42s ease both;
+}
+
 .preparation-guide-dim {
   position: absolute;
   z-index: 4;
@@ -317,6 +378,20 @@
 
 .scene.is-preparation-guide .message-box {
   z-index: 7;
+}
+
+.scene.is-phone-guide .ui-toggle,
+.scene.is-phone-guide .log-toggle {
+  z-index: 3;
+  pointer-events: none;
+  filter: grayscale(1) brightness(0.38);
+}
+
+.scene.is-phone-guide .message-box {
+  z-index: 9;
+  bottom: 2.8cqh;
+  min-height: 17cqh;
+  padding: 5.2cqh 4cqh;
 }
 
 .scene.is-escape-backpack-guide .escape-action-icons {
@@ -539,6 +614,121 @@
   text-shadow: 0 3px 18px rgba(0, 0, 0, 0.75);
 }
 
+.scene-transition.is-chapter-title .transition-title {
+  position: relative;
+  z-index: 2;
+  display: inline-block;
+  padding: 0.28em 0.42em;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: clamp(46px, 5.9cqw, 92px);
+  white-space: nowrap;
+  border-top: 1px solid rgba(255, 255, 255, 0.36);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.36);
+  text-shadow:
+    0 0 12px rgba(255, 255, 255, 0.18),
+    0 4px 18px rgba(0, 0, 0, 0.86);
+  clip-path: inset(0 100% 0 0);
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.scene-transition.is-active.is-chapter-title .transition-title {
+  animation:
+    chapter-title-type 1.12s steps(var(--transition-title-steps, 8), end) 0.42s forwards,
+    chapter-title-paper 2.42s ease both,
+    chapter-title-ink 0.14s steps(2, end) 1.12s 3;
+}
+
+@keyframes chapter-paper-grain {
+  0% {
+    opacity: 0;
+  }
+
+  16% {
+    opacity: 0.62;
+  }
+
+  78% {
+    opacity: 0.62;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes chapter-paper-vignette {
+  0% {
+    opacity: 0;
+  }
+
+  18% {
+    opacity: 0.86;
+  }
+
+  82% {
+    opacity: 0.86;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes chapter-title-type {
+  0% {
+    clip-path: inset(0 100% 0 0);
+  }
+
+  100% {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes chapter-title-paper {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(2px);
+  }
+
+  18% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0.4px);
+  }
+
+  78% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0.4px);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-4px);
+    filter: blur(2px);
+  }
+}
+
+@keyframes chapter-title-ink {
+  0%,
+  100% {
+    text-shadow:
+      0 0 12px rgba(255, 255, 255, 0.18),
+      0 5px 24px rgba(0, 0, 0, 0.86);
+  }
+
+  50% {
+    text-shadow:
+      1px 0 0 rgba(255, 255, 255, 0.2),
+      -1px 0 0 rgba(120, 120, 120, 0.26),
+      0 0 16px rgba(255, 255, 255, 0.24),
+      0 5px 24px rgba(0, 0, 0, 0.86);
+  }
+}
+
 .start-hotspot {
   position: absolute;
   z-index: 3;
@@ -597,25 +787,6 @@
 .developer-start-button:focus-visible {
   outline: 4px solid #f4c95d;
   outline-offset: 4px;
-}
-
-.start-display-note {
-  position: absolute;
-  z-index: 3;
-  right: 2.6cqw;
-  bottom: 9.2cqh;
-  margin: 0;
-  padding: 10px 14px;
-  border: 1.5px solid rgba(255, 255, 255, 0.34);
-  border-radius: 10px;
-  background: rgba(5, 5, 5, 0.44);
-  color: rgba(255, 255, 255, 0.84);
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.55;
-  text-align: left;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.72);
-  pointer-events: none;
 }
 
 .game-header {
@@ -1207,8 +1378,56 @@
   height: 110%;
 }
 
+.phone-overlay.is-phone-guide {
+  background: rgba(0, 0, 0, 0.74);
+}
+
+.phone-overlay.is-phone-guide .phone-screen-shell {
+  z-index: 6;
+}
+
+.phone-guide-dim {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  border-radius: 48px;
+  background: rgba(0, 0, 0, 0.58);
+  pointer-events: none;
+}
+
+.phone-screen-shell.is-guide-target .phone-guide-dim {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.phone-overlay.is-phone-guide .phone-app-grid button,
+.phone-overlay.is-phone-guide .phone-action-limit-badge {
+  filter: grayscale(1) brightness(0.46);
+  opacity: 0.42;
+}
+
+.phone-overlay.is-phone-guide .phone-app-grid button {
+  pointer-events: none;
+}
+
+.phone-overlay.is-phone-guide .phone-screen-shell.is-guide-target .phone-app-grid button,
+.phone-overlay.is-phone-guide .phone-screen-shell.is-guide-target .phone-action-limit-badge,
+.phone-overlay.is-phone-guide .phone-app-grid button.is-guide-target {
+  z-index: 4;
+  filter: none;
+  opacity: 1;
+}
+
+.phone-overlay.is-phone-guide .phone-app-grid button.is-guide-target {
+  box-shadow: 0 0 0 4px rgba(244, 201, 93, 0.9), 0 0 26px rgba(244, 201, 93, 0.62);
+}
+
+.phone-overlay.is-phone-guide .phone-action-limit-badge {
+  z-index: 4;
+}
+
 .phone-app-grid {
   position: absolute;
+  z-index: 3;
   top: 14.5%;
   left: 12%;
   right: 12%;
@@ -1266,6 +1485,124 @@
   white-space: nowrap;
 }
 
+.phone-action-limit-badge {
+  --phone-limit-bg: rgba(32, 43, 58, 0.68);
+  --phone-limit-border: rgba(142, 162, 184, 0.28);
+  --phone-limit-ring: rgba(142, 162, 184, 0.1);
+  --phone-limit-text: rgba(255, 255, 255, 0.92);
+  --phone-limit-strong: rgba(255, 255, 255, 0.96);
+  --phone-limit-dot-border: rgba(170, 195, 220, 0.62);
+  --phone-limit-dot-bg: rgba(255, 255, 255, 0.12);
+  --phone-limit-dot-used-border: rgba(126, 151, 178, 0.82);
+  --phone-limit-dot-used-bg: rgba(126, 151, 178, 0.72);
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1.5px solid var(--phone-limit-border);
+  border-radius: 999px;
+  background: var(--phone-limit-bg);
+  color: var(--phone-limit-text);
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow:
+    0 0 0 1px var(--phone-limit-ring),
+    0 6px 16px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+
+.phone-action-limit-badge.is-home {
+  top: 8.5%;
+  right: 10.6%;
+}
+
+.phone-action-limit-badge.is-detail {
+  --phone-limit-bg: rgba(245, 247, 250, 0.92);
+  --phone-limit-border: rgba(120, 130, 145, 0.28);
+  --phone-limit-ring: rgba(60, 80, 105, 0.08);
+  --phone-limit-text: #1f2933;
+  --phone-limit-strong: #111827;
+  --phone-limit-dot-border: rgba(96, 110, 128, 0.48);
+  --phone-limit-dot-bg: rgba(31, 41, 51, 0.08);
+  --phone-limit-dot-used-border: rgba(59, 130, 246, 0.76);
+  --phone-limit-dot-used-bg: rgba(59, 130, 246, 0.72);
+  position: static;
+  flex: 0 0 auto;
+  box-shadow:
+    0 8px 22px rgba(26, 36, 48, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
+.phone-action-limit-badge.is-empty {
+  --phone-limit-border: rgba(142, 162, 184, 0.34);
+  --phone-limit-ring: rgba(142, 162, 184, 0.1);
+  --phone-limit-dot-used-border: rgba(126, 151, 178, 0.82);
+  --phone-limit-dot-used-bg: rgba(126, 151, 178, 0.72);
+}
+
+.phone-action-limit-badge.is-detail.is-empty {
+  --phone-limit-bg: rgba(245, 247, 250, 0.92);
+  --phone-limit-text: #1f2933;
+  --phone-limit-strong: #111827;
+  --phone-limit-border: rgba(249, 115, 22, 0.34);
+  --phone-limit-ring: rgba(249, 115, 22, 0.08);
+}
+
+.phone-action-limit-badge span {
+  font-size: clamp(11px, 1.1cqh, 15px);
+  font-weight: 800;
+}
+
+.phone-action-limit-badge strong {
+  color: var(--phone-limit-strong);
+  font-size: clamp(12px, 1.25cqh, 17px);
+  font-weight: 900;
+}
+
+.phone-action-limit-badge ol {
+  display: flex;
+  gap: 3px;
+  margin: 0 0 0 1px;
+  padding: 0;
+  list-style: none;
+}
+
+.phone-action-limit-badge li {
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid var(--phone-limit-dot-border);
+  border-radius: 999px;
+  background: var(--phone-limit-dot-bg);
+}
+
+.phone-action-limit-badge li.is-used {
+  border-color: var(--phone-limit-dot-used-border);
+  background: var(--phone-limit-dot-used-bg);
+}
+
+.phone-action-notice {
+  position: absolute;
+  z-index: 7;
+  left: 12%;
+  right: 12%;
+  bottom: 13%;
+  padding: 10px 12px;
+  border: 2px solid rgba(255, 255, 255, 0.72);
+  border-radius: 14px;
+  background: rgba(8, 8, 8, 0.86);
+  color: #fff;
+  font-size: clamp(13px, 1.45cqh, 18px);
+  font-weight: 800;
+  line-height: 1.45;
+  text-align: center;
+  pointer-events: none;
+}
+
 .phone-notification-badge {
   position: absolute;
   top: -6px;
@@ -1318,8 +1655,15 @@
   overflow: hidden;
 }
 
+.phone-detail-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--phone-gap-sm);
+  flex: 0 0 auto;
+}
+
 .phone-detail-back {
-  align-self: flex-start;
   min-height: clamp(42px, 4.2cqh, 56px);
   padding: 0.75cqh 1.45cqw;
   border: 0;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react'
 import badEndBackground from './assets/backgrounds/BadEnd.png'
 import afterDisasterBackground from './assets/backgrounds/災害後画面.png'
 import backpackBackground from './assets/backgrounds/リュック画面.png'
@@ -159,6 +159,13 @@ type Screen =
 type StoryDay = 0 | 1
 type EndKind = 'true' | 'normal' | 'hot-blood' | 'bad' | 'ufo' | 'friends'
 type ReviewMode = 'chart' | 'text'
+type TransitionVariant = 'default' | 'chapter'
+
+const textTransitionSwitchDelayMs = 2240
+const textTransitionDurationMs = 2580
+const fadeTransitionSwitchDelayMs = 140
+const fadeTransitionDurationMs = 620
+const transitionFadeOutMs = 360
 
 type Dialogue = {
   speaker: string
@@ -245,10 +252,20 @@ type EscapeGuideStep = {
 }
 
 type EscapeGuideKind = 'initial' | 'light'
+type PhoneGuideTarget = 'phone' | 'contact' | 'news' | 'shelter'
+
+type PhoneGuideStep = {
+  target: PhoneGuideTarget
+  dialogue: Dialogue
+}
 
 type PhoneAppView = 'home' | 'contact' | 'news' | 'shelter'
-type ContactId = 'mother' | 'friend' | 'relative'
+type ContactId = 'mother' | 'friend' | 'friend2' | 'relative'
 type NewsArticleId = 'preparedness' | 'station-drill' | 'prediction-day' | 'weather'
+type PhoneActionKey =
+  | `contact:${ContactId}`
+  | `news:${NewsArticleId}`
+  | 'shelter-detail'
 
 type MapPoint = {
   x: number
@@ -276,6 +293,12 @@ type ContactThread = {
   quickReplies: {
     text: string
     response: string
+  }[]
+  postDisasterReplies: {
+    textWhenPrepared: string
+    textWhenUnprepared: string
+    responseWhenPrepared: string
+    responseWhenUnprepared: string
   }[]
 }
 
@@ -423,22 +446,30 @@ const contactThreads: ContactThread[] = [
     id: 'mother',
     name: '母',
     relation: '家族',
-    preview: '備えだけ確認しておいてね。',
+    preview: 'そんなことないと思うけど、あなたが言うなら。',
     time: '10:12',
     messages: [
-      { from: 'them', text: '最近変なニュースも見るし、少し心配だね。' },
-      { from: 'me', text: 'うん。水と食べ物は買っておくよ。' },
-      { from: 'them', text: '家具も倒れないようにしておいてね。' },
-      { from: 'me', text: 'わかった。部屋も確認しておく。' },
+      { from: 'me', text: '明日、大きな地震が来るかもしれない。無事でいてね。' },
+      { from: 'them', text: '急にどうしたの。そんなことないと思うけど……。' },
+      { from: 'me', text: '変な本を見たんだ。信じなくてもいいから、備えだけしてほしい。' },
+      { from: 'them', text: 'あなたがそこまで言うなら確認しておく。あなたは対策してるの？' },
     ],
     quickReplies: [
       {
-        text: '備蓄はもう少し確認しておく',
-        response: 'ありがとう。水と食べ物があるだけでも安心だね。',
+        text: '棚とテレビを先に確認する',
+        response: 'うん。寝る場所と通路に倒れてこないようにして。私も食器棚と火元を見ておくね。',
       },
       {
-        text: '家具の固定もしておく',
-        response: 'それが一番大事かも。無理せず早めにやってね。',
+        text: '靴と水も近くに置いておく',
+        response: 'それなら少し安心。暗い中でも動けるように、私も靴を出しておくね。',
+      },
+    ],
+    postDisasterReplies: [
+      {
+        textWhenPrepared: 'さっき話した地震、本当に来た。こっちは無事。火元と出口だけ確認して。',
+        textWhenUnprepared: '今の地震大丈夫？無事なら火元と出口を確認して。靴も履いて。',
+        responseWhenPrepared: '無事。言われたから靴を出してたし、食器棚から離れてた。あなたも本当に気をつけて。',
+        responseWhenUnprepared: 'びっくりしたけど無事。食器が少し割れた。今から火元と出口を確認するね。',
       },
     ],
   },
@@ -446,21 +477,61 @@ const contactThreads: ContactThread[] = [
     id: 'friend',
     name: '友達',
     relation: '友人',
-    preview: '地震？ そんな急に来るか？',
+    preview: 'ほんまかよ。まあ覚えとくわ。',
     time: '09:48',
     messages: [
-      { from: 'them', text: '地震？ そんな急に来るか？' },
-      { from: 'me', text: 'わからないけど、少し嫌な感じがする。備えだけはしておきたい。' },
-      { from: 'them', text: 'まあ、お前がそこまで言うなら自分も避難場所くらい見ておくわ。' },
+      { from: 'me', text: '明日、大きい地震が来るかもしれない。無事でいてな。' },
+      { from: 'them', text: 'ほんまかよ。急に予言者みたいなこと言い出したな。' },
+      { from: 'me', text: '信じなくてもいいけど、避難場所と道だけ覚えといて。' },
+      { from: 'them', text: '信じてはないけど、お前が言うなら覚えとくわ。学校方面やろ？' },
     ],
     quickReplies: [
       {
-        text: '何かあったら合流しよう',
-        response: '本当に来たらな。まあ、その時は連絡する。避難場所も見ておくわ。',
+        text: '避難するなら学校方面にする',
+        response: '了解。もし本当に揺れたら学校方面な。細い道より大通りの方がよさそうやな。',
       },
       {
-        text: '避難場所だけ確認して',
-        response: 'わかった。半信半疑だけど、お前が言うなら確認しとく。',
+        text: '危ない道を覚えておく',
+        response: '駅前の細い道、足場出てたわ。古い塀もあるし、そこは避けるようにする。',
+      },
+    ],
+    postDisasterReplies: [
+      {
+        textWhenPrepared: '本当に揺れた。こっちは動ける。細い道は避けて、学校方面に行くなら大通りで。',
+        textWhenUnprepared: '今の地震大丈夫？外に出るなら細い道と古い塀は避けて。学校方面なら大通りがよさそう。',
+        responseWhenPrepared: '無事。お前の言ってたやつ本当に来たな。足場の道はやめて大通りで行く。',
+        responseWhenUnprepared: '大丈夫。駅前の方ざわついてる。細い道はやめとくわ。お前も落下物に気をつけろ。',
+      },
+    ],
+  },
+  {
+    id: 'friend2',
+    name: '友達2',
+    relation: '友人',
+    preview: '最近UFO見た人増えてるらしいぞ。',
+    time: '09:21',
+    messages: [
+      { from: 'them', text: '最近UFO見た人増えてるらしいぞ。オカルトマニアとしては気になるな。' },
+      { from: 'me', text: 'それより明日地震が起こるかもしれない。ほんとに気をつけろよ。' },
+      { from: 'them', text: 'お前の話の方がオカルトやなw' },
+      { from: 'them', text: 'まあ一応気をつけるわ。そっちこそUFOにさらわれるなよ～。' },
+    ],
+    quickReplies: [
+      {
+        text: 'UFOより地震の方が心配だ',
+        response: 'はいはい。じゃあ地震もUFOも両方気をつけとくわ。',
+      },
+      {
+        text: '変な光を見ても近づくなよ',
+        response: 'それ完全にオカルト映画の忠告やん。でも覚えとく。',
+      },
+    ],
+    postDisasterReplies: [
+      {
+        textWhenPrepared: '地震、本当に来た。こっちは無事。変な光とか見ても近づくなよ、避難優先で。',
+        textWhenUnprepared: '今の地震大丈夫？無事なら避難優先で。変な光とか見ても近づくなよ。',
+        responseWhenPrepared: '無事。お前の予言の方が当たってもうたな。外が変に明るい気もするけど、今は避難する。',
+        responseWhenUnprepared: '無事。地震だけでも十分オカルトやわ。変な光見ても近づかんようにする。',
       },
     ],
   },
@@ -468,22 +539,31 @@ const contactThreads: ContactThread[] = [
     id: 'relative',
     name: '親戚',
     relation: '親戚',
-    preview: '何かあったら連絡して。',
+    preview: 'その本の話、知ってる。',
     time: '昨日',
     messages: [
-      { from: 'them', text: 'そっちは最近どう？' },
-      { from: 'me', text: '普通だよ。少し防災の確認はしてる。' },
-      { from: 'them', text: '何かあったら連絡して。無理に動かないでね。' },
-      { from: 'me', text: 'ありがとう。避難場所も確認しておく。' },
+      { from: 'me', text: '「ワイが見た未来」って本、知ってる？ 明日地震が起こるって書いてあった。' },
+      { from: 'them', text: '……その本の話、知ってる。まさか本当に見つけたの？' },
+      { from: 'me', text: 'やっぱり変な本なの？' },
+      { from: 'them', text: '信じるなら、情報と電源を切らさないで。スマホだけに頼るのは危ない。' },
+      { from: 'them', text: 'ラジオ、モバイルバッテリー、薬、食べ物。すぐ持てる場所にまとめて。' },
     ],
     quickReplies: [
       {
-        text: '家の中を片付けておく',
-        response: '足元に物がないだけでも安心だね。気をつけて。',
+        text: 'ラジオと充電を確認しておく',
+        response: 'それがいい。通信が混んでも、情報が入る手段があると落ち着いて動ける。',
       },
       {
-        text: '家族にも共有しておく',
-        response: 'うん、連絡先だけでも決めておくと安心だよ。',
+        text: '薬と食べ物をまとめておく',
+        response: '避難する時に探さなくて済む。暗くなる前に場所だけ決めておいて。',
+      },
+    ],
+    postDisasterReplies: [
+      {
+        textWhenPrepared: '地震来た。こっちは無事。通信が不安定かも。ラジオと充電、そっちは大丈夫？',
+        textWhenUnprepared: '今の地震大丈夫？通信が混むかもしれない。ラジオか充電できるものがあれば確保して。',
+        responseWhenPrepared: '無事。やっぱり本の通りになったね。充電もラジオもある。落ち着いて避難して。',
+        responseWhenUnprepared: '無事。スマホの電池が少ないから、必要な連絡だけにする。ラジオ探してみる。',
       },
     ],
   },
@@ -547,7 +627,7 @@ const newsArticles: NewsArticle[] = [
 const bookWarningDialogues: Dialogue[] = [
   {
     speaker: '主人公',
-    text: '……なんだ、この本。',
+    text: '……こんな本、部屋に置いてあったっけ。',
   },
   {
     speaker: '主人公',
@@ -555,15 +635,23 @@ const bookWarningDialogues: Dialogue[] = [
   },
   {
     speaker: '主人公',
-    text: '明日、この街で大きな地震が起こる……',
+    text: 'ページの端が折れてる。誰かが、ここを読めって言ってるみたいだ。',
   },
   {
     speaker: '主人公',
-    text: '……って書いてある。',
+    text: '明日、この街で大きな地震が起こる……？',
   },
   {
     speaker: '主人公',
-    text: 'ただの作り話だよな。でも、なぜか嫌な感じがする。',
+    text: '日付も、場所も、やけに具体的だ。',
+  },
+  {
+    speaker: '主人公',
+    text: '普通なら笑って終わりだけど、胸のざわつきが消えない。',
+  },
+  {
+    speaker: '主人公',
+    text: 'もし本当なら、明日になってからじゃ遅い。',
   },
   {
     speaker: '主人公',
@@ -941,8 +1029,50 @@ const createInitialRoomMeasureFlags = (): Record<string, boolean> =>
 const createInitialContactReplyLog = (): Record<ContactId, ContactMessage[]> => ({
   mother: [],
   friend: [],
+  friend2: [],
   relative: [],
 })
+
+const createInitialPostDisasterContactReplyLog = (): Record<
+  ContactId,
+  ContactMessage[]
+> => ({
+  mother: [],
+  friend: [],
+  friend2: [],
+  relative: [],
+})
+
+const phoneGuideSteps: PhoneGuideStep[] = [
+  {
+    target: 'phone',
+    dialogue: {
+      speaker: 'ガイド',
+      text: 'スマホでは連絡、ニュース、避難場所を確認できます。情報確認は初日2回、二日目1回までです。',
+    },
+  },
+  {
+    target: 'contact',
+    dialogue: {
+      speaker: 'ガイド',
+      text: '連絡では相手を選んだ時に回数を使います。一度開いた相手には、そのままメッセージを送れます。友達2の雑談は回数を使いません。',
+    },
+  },
+  {
+    target: 'news',
+    dialogue: {
+      speaker: 'ガイド',
+      text: 'ニュースでは街の情報や噂を確認できます。記事を開くと回数を使います。',
+    },
+  },
+  {
+    target: 'shelter',
+    dialogue: {
+      speaker: 'ガイド',
+      text: '避難場所では避難先と道の情報を確認できます。詳細を開くと回数を使います。',
+    },
+  },
+]
 
 const preparationGuideSteps: PreparationGuideStep[] = [
   {
@@ -1555,9 +1685,23 @@ const foodSoundItemIds: ItemId[] = [
   'portable-toilet',
 ]
 const dailyShopPurchaseLimit = 3
+const dailyPhoneActionLimits: Record<StoryDay, number> = {
+  0: 1,
+  1: 2,
+}
 const createInitialDailyShopPurchaseCounts = (): Record<StoryDay, number> => ({
   0: 0,
   1: 0,
+})
+
+const createInitialDailyPhoneActionCounts = (): Record<StoryDay, number> => ({
+  0: 0,
+  1: 0,
+})
+
+const createInitialUsedPhoneActionKeys = (): Record<StoryDay, PhoneActionKey[]> => ({
+  0: [],
+  1: [],
 })
 
 
@@ -1572,6 +1716,10 @@ function App() {
   const [postDisasterDialogueIndex, setPostDisasterDialogueIndex] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [transitionText, setTransitionText] = useState<string | null>(null)
+  const [transitionBackgroundImage, setTransitionBackgroundImage] =
+    useState<string | null>(null)
+  const [transitionVariant, setTransitionVariant] =
+    useState<TransitionVariant>('default')
   const [hoveredAction, setHoveredAction] = useState<string | null>(null)
   const [hoveredItem, setHoveredItem] = useState<BackpackItem | null>(null)
   const [selectedItem, setSelectedItem] = useState<BackpackItem | null>(null)
@@ -1587,6 +1735,10 @@ function App() {
     useState<ContactId | null>(null)
   const [contactReplyLog, setContactReplyLog] =
     useState<Record<ContactId, ContactMessage[]>>(createInitialContactReplyLog)
+  const [postDisasterContactReplyLog, setPostDisasterContactReplyLog] =
+    useState<Record<ContactId, ContactMessage[]>>(
+      createInitialPostDisasterContactReplyLog,
+    )
   const [escapeFriendMessages, setEscapeFriendMessages] = useState<ContactMessage[]>([])
   const [escapeFriendReplyStep, setEscapeFriendReplyStep] = useState(0)
   const [isEscapeFriendResponsePending, setIsEscapeFriendResponsePending] =
@@ -1651,6 +1803,9 @@ function App() {
   const [escapeGuideIndex, setEscapeGuideIndex] = useState(0)
   const [hasSeenEscapeGuide, setHasSeenEscapeGuide] = useState(false)
   const [hasSeenEscapeLightGuide, setHasSeenEscapeLightGuide] = useState(false)
+  const [isPhoneGuideActive, setIsPhoneGuideActive] = useState(false)
+  const [hasSeenPhoneGuide, setHasSeenPhoneGuide] = useState(false)
+  const [phoneGuideIndex, setPhoneGuideIndex] = useState(0)
   const [, setIsRoomChangePreviewPending] = useState(false)
   const [roomChangePreviewDialogue, setRoomChangePreviewDialogue] =
     useState<Dialogue>(() => createRoomChangePreviewDialogue(false, false))
@@ -1668,6 +1823,13 @@ function App() {
   const [dailyShopPurchaseCounts, setDailyShopPurchaseCounts] = useState<
     Record<StoryDay, number>
   >(createInitialDailyShopPurchaseCounts)
+  const [dailyPhoneActionCounts, setDailyPhoneActionCounts] = useState<
+    Record<StoryDay, number>
+  >(createInitialDailyPhoneActionCounts)
+  const [usedPhoneActionKeys, setUsedPhoneActionKeys] = useState<
+    Record<StoryDay, PhoneActionKey[]>
+  >(createInitialUsedPhoneActionKeys)
+  const [phoneActionNotice, setPhoneActionNotice] = useState<string | null>(null)
 
   // スマホでの連絡や避難場所確認など、アイテム以外の行動flag。
   const [storyFlags, setStoryFlags] = useState<StoryFlags>(
@@ -1824,6 +1986,9 @@ function App() {
     activePreparationGuideSteps[0]
   const isPreparationGuideTarget = (target: PreparationGuideTarget) =>
     isPreparationGuideActive && currentPreparationGuideStep.target === target
+  const currentPhoneGuideStep = phoneGuideSteps[phoneGuideIndex] ?? phoneGuideSteps[0]
+  const isPhoneGuideTarget = (target: PhoneGuideTarget) =>
+    isPhoneGuideActive && currentPhoneGuideStep.target === target
   const isEscapeGuideActive = escapeGuideKind !== null
   const currentPostDisasterDialogues = isFurnitureFastenerUsed
     ? truePostDisasterDialogues
@@ -1850,14 +2015,27 @@ function App() {
   const selectedContactReplyLog = selectedContact
     ? contactReplyLog[selectedContact.id]
     : []
+  const selectedPostDisasterContactReplyLog = selectedContact
+    ? postDisasterContactReplyLog[selectedContact.id]
+    : []
+  const isPostDisasterContactChatActive =
+    isEscape && selectedContact !== undefined && !isEscapeFriendChatActive
   const selectedContactMessages = selectedContact
     ? isEscapeFriendChatActive
       ? escapeFriendMessages
-      : [...selectedContact.messages, ...selectedContactReplyLog]
+      : isPostDisasterContactChatActive
+        ? [
+            ...selectedContact.messages,
+            ...selectedContactReplyLog,
+            ...selectedPostDisasterContactReplyLog,
+          ]
+        : [...selectedContact.messages, ...selectedContactReplyLog]
     : []
   const hasSelectedContactReply = isEscapeFriendChatActive
     ? escapeFriendReplyStep >= escapeFriendReplySteps.length
-    : selectedContactReplyLog.length > 0
+    : isPostDisasterContactChatActive
+      ? selectedPostDisasterContactReplyLog.length > 0
+      : selectedContactReplyLog.length > 0
   const currentEscapeFriendReply =
     isEscapeFriendChatActive && escapeFriendReplyStep < escapeFriendReplySteps.length
       ? escapeFriendReplySteps[escapeFriendReplyStep]
@@ -1946,6 +2124,31 @@ function App() {
   const remainingShopPurchases = Math.max(
     dailyShopPurchaseLimit - currentDayShopPurchaseCount,
     0,
+  )
+  const currentDayPhoneActionLimit = dailyPhoneActionLimits[currentDay]
+  const currentDayPhoneActionCount = dailyPhoneActionCounts[currentDay] ?? 0
+  const remainingPhoneActions = Math.max(
+    currentDayPhoneActionLimit - currentDayPhoneActionCount,
+    0,
+  )
+  const usedPhoneActionsToday = currentDayPhoneActionLimit - remainingPhoneActions
+  const renderPhoneActionLimitBadge = (className = '') => (
+    <div
+      className={`phone-action-limit-badge ${className} ${
+        remainingPhoneActions <= 0 ? 'is-empty' : ''
+      }`}
+    >
+      <span>確認回数</span>
+      <strong>あと{remainingPhoneActions}/{currentDayPhoneActionLimit}</strong>
+      <ol aria-hidden="true">
+        {Array.from({ length: currentDayPhoneActionLimit }, (_, index) => (
+          <li
+            key={index}
+            className={index < usedPhoneActionsToday ? 'is-used' : ''}
+          />
+        ))}
+      </ol>
+    </div>
   )
 
   // リュック画面には購入数が1以上のアイテムだけを表示する。
@@ -2616,6 +2819,7 @@ function App() {
         : preparationPhoneDetailFrameImage
   const canAdvanceDialogue =
     isPreparationGuideActive ||
+    isPhoneGuideActive ||
     isEscapeGuideActive ||
     escapeNoticeDialogue !== null ||
     canAdvanceEscapeScreen25Text ||
@@ -2641,6 +2845,8 @@ function App() {
     isRealLifeMessage
   const currentDialogue = isPreparationGuideActive
     ? currentPreparationGuideStep.dialogue
+    : isPhoneGuideActive
+      ? currentPhoneGuideStep.dialogue
     : isEscapeGuideActive
       ? currentEscapeGuideStep.dialogue
     : escapeNoticeDialogue
@@ -2708,7 +2914,7 @@ function App() {
     : escapeScreen25Stage === 'ufo-stop'
       ? escapeScreen25UfoStopDialogue
     : isFutureBookCut
-      ? bookWarningDialogues[0]
+      ? bookWarningDialogues[1]
     : isRoomIntro
       ? roomIntroDialogues[roomIntroIndex]
       : isNight
@@ -2929,6 +3135,8 @@ function App() {
     resetEscapeFlow()
     setIsTransitioning(false)
     setTransitionText(null)
+    setTransitionBackgroundImage(null)
+    setTransitionVariant('default')
     setHoveredAction(null)
     setHoveredItem(null)
     setSelectedItem(null)
@@ -2940,6 +3148,7 @@ function App() {
     setIsContactReplyMenuOpen(false)
     setPendingContactResponseId(null)
     setContactReplyLog(createInitialContactReplyLog())
+    setPostDisasterContactReplyLog(createInitialPostDisasterContactReplyLog())
     setEscapeFriendMessages([])
     setEscapeFriendReplyStep(0)
     setIsEscapeFriendResponsePending(false)
@@ -2984,11 +3193,17 @@ function App() {
     setEscapeGuideIndex(0)
     setHasSeenEscapeGuide(false)
     setHasSeenEscapeLightGuide(false)
+    setIsPhoneGuideActive(false)
+    setHasSeenPhoneGuide(false)
+    setPhoneGuideIndex(0)
     setIsRoomChangePreviewPending(false)
     setRoomChangePreviewDialogue(createRoomChangePreviewDialogue(false, false))
     setItemFlags(createInitialItemFlags())
     setPurchasedItemOrder([])
     setDailyShopPurchaseCounts(createInitialDailyShopPurchaseCounts())
+    setDailyPhoneActionCounts(createInitialDailyPhoneActionCounts())
+    setUsedPhoneActionKeys(createInitialUsedPhoneActionKeys())
+    setPhoneActionNotice(null)
     setResultReviewEndKind(null)
     setReviewMode('chart')
     setStoryFlags(createInitialStoryFlags())
@@ -3810,14 +4025,12 @@ function App() {
       return
     }
 
-    if (isEscape && flagName === 'checkedShelter') {
-      setHasCheckedEscapeShelter(true)
+    if (!isPreparation) {
+      setStoryFlags((current) => ({
+        ...current,
+        [flagName]: true,
+      }))
     }
-
-    setStoryFlags((current) => ({
-      ...current,
-      [flagName]: true,
-    }))
 
     setPhoneAppView(nextView)
     setSelectedContactId(null)
@@ -3864,7 +4077,15 @@ function App() {
     setIsContactReplyMenuOpen(false)
     setSelectedNewsArticleId(null)
     setIsShelterDetailOpen(false)
+    setPhoneActionNotice(null)
+    setIsPhoneGuideActive(false)
+    setPhoneGuideIndex(0)
     setHasCheckedEscapeShelter(false)
+
+    if (isPreparation && !hasSeenPhoneGuide) {
+      setIsPhoneGuideActive(true)
+      setPhoneGuideIndex(0)
+    }
 
     if (isEscapeFriendNotificationAvailable) {
       setIsPhoneOpen(true)
@@ -4151,6 +4372,50 @@ function App() {
     }, 520)
   }
 
+  const handlePostDisasterContactQuickReply = (
+    contactId: ContactId,
+    reply: ContactThread['postDisasterReplies'][number],
+  ) => {
+    if (postDisasterContactReplyLog[contactId].length > 0 || pendingContactResponseId) {
+      return
+    }
+
+    const hasPreparedMessage = contactReplyLog[contactId].length > 0
+
+    setIsContactReplyMenuOpen(false)
+    setPendingContactResponseId(contactId)
+    setPostDisasterContactReplyLog((current) => ({
+      ...current,
+      [contactId]: [
+        ...current[contactId],
+        {
+          from: 'me',
+          text: hasPreparedMessage
+            ? reply.textWhenPrepared
+            : reply.textWhenUnprepared,
+        },
+      ],
+    }))
+
+    window.setTimeout(() => {
+      setPostDisasterContactReplyLog((current) => ({
+        ...current,
+        [contactId]: [
+          ...current[contactId],
+          {
+            from: 'them',
+            text: hasPreparedMessage
+              ? reply.responseWhenPrepared
+              : reply.responseWhenUnprepared,
+          },
+        ],
+      }))
+      setPendingContactResponseId((current) =>
+        current === contactId ? null : current,
+      )
+    }, 520)
+  }
+
   const handleEscapeFriendReply = () => {
     if (!currentEscapeFriendReply || isEscapeFriendResponsePending) {
       return
@@ -4175,8 +4440,14 @@ function App() {
 
       if (nextStep >= escapeFriendReplySteps.length) {
         window.setTimeout(() => {
-          setTransitionText('-友人を待って-')
-          setIsTransitioning(true)
+          startTextTransition(
+            '友人を待って',
+            getEscapeTimeVariantBackground(
+              escapeScreen25Background,
+              escapeScreen25NightBackground,
+              escapeScreen25LightBackground,
+            ),
+          )
           setIsPhoneOpen(false)
           setPhoneAppView('home')
           setSelectedContactId(null)
@@ -4185,8 +4456,8 @@ function App() {
             setIsEscapeFriendRouteComplete(true)
             setEscapeScreen25Stage('friend-wait')
             addDialogueLog(escapeScreen25FriendWaitDialogue)
-            finishTransition()
-          }, 140)
+          }, textTransitionSwitchDelayMs)
+          finishTransition(textTransitionDurationMs)
         }, 720)
       }
     }, 620)
@@ -4220,11 +4491,108 @@ function App() {
     setScreen('preparation')
   }
 
-  const finishTransition = () => {
+  const tryUsePhoneAction = (actionKey: PhoneActionKey) => {
+    if (!isPreparation) {
+      return true
+    }
+
+    if (usedPhoneActionKeys[currentDay].includes(actionKey)) {
+      setPhoneActionNotice(null)
+      return true
+    }
+
+    if (remainingPhoneActions <= 0) {
+      setPhoneActionNotice('これ以上スマホで情報を確認している時間はない。')
+      return false
+    }
+
+    setUsedPhoneActionKeys((current) => ({
+      ...current,
+      [currentDay]: [...current[currentDay], actionKey],
+    }))
+    setDailyPhoneActionCounts((current) => ({
+      ...current,
+      [currentDay]: (current[currentDay] ?? 0) + 1,
+    }))
+    setPhoneActionNotice(null)
+    return true
+  }
+
+  const handleOpenContactThread = (contactId: ContactId) => {
+    if (contactId === 'friend' && isEscapeFriendNotificationAvailable) {
+      handleOpenEscapeFriendMessages()
+      return
+    }
+
+    if (
+      contactId !== 'friend2' &&
+      !tryUsePhoneAction(`contact:${contactId}`)
+    ) {
+      return
+    }
+
+    if (isPreparation && contactId !== 'friend2') {
+      setStoryFlags((current) => ({
+        ...current,
+        contactedFamily: true,
+      }))
+    }
+
+    setSelectedContactId(contactId)
+    setIsContactReplyMenuOpen(false)
+  }
+
+  const handleOpenNewsArticle = (articleId: NewsArticleId) => {
+    if (!tryUsePhoneAction(`news:${articleId}`)) {
+      return
+    }
+
+    if (isPreparation) {
+      setStoryFlags((current) => ({
+        ...current,
+        checkedNews: true,
+      }))
+    }
+
+    setSelectedNewsArticleId(articleId)
+  }
+
+  const handleOpenShelterDetail = () => {
+    if (!tryUsePhoneAction('shelter-detail')) {
+      return
+    }
+
+    if (isPreparation) {
+      setStoryFlags((current) => ({
+        ...current,
+        checkedShelter: true,
+      }))
+    }
+
+    if (isEscape) {
+      setHasCheckedEscapeShelter(true)
+    }
+
+    setIsShelterDetailOpen(true)
+  }
+
+  const startTextTransition = (text: string, backgroundImage?: string) => {
+    setTransitionVariant('chapter')
+    setTransitionText(text)
+    setTransitionBackgroundImage(backgroundImage ?? null)
+    setIsTransitioning(true)
+  }
+
+  const finishTransition = (durationMs = fadeTransitionDurationMs) => {
     window.setTimeout(() => {
       setIsTransitioning(false)
+    }, durationMs)
+
+    window.setTimeout(() => {
       setTransitionText(null)
-    }, 620)
+      setTransitionBackgroundImage(null)
+      setTransitionVariant('default')
+    }, durationMs + transitionFadeOutMs)
   }
 
   const handleFinishPreparation = () => {
@@ -4244,16 +4612,15 @@ function App() {
       return
     }
 
-    setTransitionText('-夜-')
-    setIsTransitioning(true)
+    startTextTransition('夜', nightRoomBackground)
 
     window.setTimeout(() => {
       setScreen('night')
       setNightDialogueIndex(0)
       addDialogueLog(nightDialoguesByDay[currentDay as 1][0])
-    }, 140)
+    }, textTransitionSwitchDelayMs)
 
-    finishTransition()
+    finishTransition(textTransitionDurationMs)
   }
 
   const jumpToFinalPreparation = () => {
@@ -4381,6 +4748,22 @@ function App() {
       return
     }
 
+    if (isPhoneGuideActive) {
+      const nextGuideIndex = phoneGuideIndex + 1
+
+      if (nextGuideIndex >= phoneGuideSteps.length) {
+        setIsPhoneGuideActive(false)
+        setHasSeenPhoneGuide(true)
+        setPhoneGuideIndex(0)
+        setHoveredAction(null)
+        return
+      }
+
+      setPhoneGuideIndex(nextGuideIndex)
+      setHoveredAction(null)
+      return
+    }
+
     if (escapeScreen25Stage === 'intro') {
       setEscapeScreen25Stage('intro-observe')
       setHoveredAction(null)
@@ -4493,8 +4876,7 @@ function App() {
     }
 
     if (escapeScreen25Stage === 'friend-arrival') {
-      setTransitionText('-Friends End-')
-      setIsTransitioning(true)
+      startTextTransition('Friends End', friendsEndBackground)
       setHoveredAction(null)
 
       window.setTimeout(() => {
@@ -4503,9 +4885,9 @@ function App() {
         setIsLogOpen(false)
         setScreen('friends-end')
         addDialogueLog(friendsEndDialogue)
-      }, 140)
+      }, textTransitionSwitchDelayMs)
 
-      finishTransition()
+      finishTransition(textTransitionDurationMs)
       return
     }
 
@@ -4594,8 +4976,7 @@ function App() {
     }
 
     if (escapeScreen25Stage === 'ufo-stop') {
-      setTransitionText('-UFO End-')
-      setIsTransitioning(true)
+      startTextTransition('UFO End', ufoEndBackground)
       setHoveredAction(null)
 
       window.setTimeout(() => {
@@ -4603,9 +4984,9 @@ function App() {
         setIsLogOpen(false)
         setScreen('ufo-end')
         addDialogueLog(ufoEndDialogue)
-      }, 140)
+      }, textTransitionSwitchDelayMs)
 
-      finishTransition()
+      finishTransition(textTransitionDurationMs)
       return
     }
 
@@ -4649,8 +5030,7 @@ function App() {
     }
 
     if (escapePhonePromptStage === 'charging-wait') {
-      setTransitionText('-しばらくして-')
-      setIsTransitioning(true)
+      startTextTransition('しばらくして', currentEscapeBackground)
       setEscapePhonePromptStage(null)
       setHoveredAction(null)
 
@@ -4667,9 +5047,9 @@ function App() {
           speaker: 'ナレーション',
           text: 'スマホの充電が少し回復した。避難場所を確認できそうだ。',
         })
-      }, 140)
+      }, textTransitionSwitchDelayMs)
 
-      finishTransition()
+      finishTransition(textTransitionDurationMs)
       return
     }
 
@@ -4847,8 +5227,12 @@ function App() {
         return
       }
 
-      setTransitionText('-避難所へ-')
-      setIsTransitioning(true)
+      startTextTransition(
+        '避難所へ',
+        isShelterArrivalNightBackground
+          ? shelterArrivalNightBackground
+          : shelterArrivalBackground,
+      )
       setHoveredAction(null)
 
       window.setTimeout(() => {
@@ -4858,9 +5242,9 @@ function App() {
         setEscapePhonePromptStage(null)
         setScreen('shelter-arrival')
         addDialogueLog(shelterArrivalDialogue)
-      }, 140)
+      }, textTransitionSwitchDelayMs)
 
-      finishTransition()
+      finishTransition(textTransitionDurationMs)
       return
     }
 
@@ -4911,40 +5295,40 @@ function App() {
         return
       }
 
-      setIsTransitioning(true)
+      startTextTransition('第一章　未来を変えるために', bookWarningBackground)
 
       window.setTimeout(() => {
         setScreen('book-warning')
         setDialogueIndex(0)
         addDialogueLog(bookWarningDialogues[0])
-      }, 360)
+      }, textTransitionSwitchDelayMs)
 
-      window.setTimeout(() => {
-        setIsTransitioning(false)
-      }, 760)
+      finishTransition(textTransitionDurationMs)
 
       return
     }
 
     if (isFutureBookCut) {
       setScreen('book-warning')
-      setDialogueIndex(1)
-      addDialogueLog(bookWarningDialogues[1])
+      setDialogueIndex(2)
+      addDialogueLog(bookWarningDialogues[2])
       return
     }
 
     if (isBookWarning && isLastBookDialogue) {
+      setTransitionVariant('default')
+      setTransitionText(null)
       setIsTransitioning(true)
 
       window.setTimeout(() => {
         setScreen('room-intro')
         setDialogueIndex(0)
         addDialogueLog(roomIntroDialogues[0])
-      }, 140)
+      }, fadeTransitionSwitchDelayMs)
 
       window.setTimeout(() => {
         setIsTransitioning(false)
-      }, 520)
+      }, fadeTransitionDurationMs)
 
       return
     }
@@ -4963,19 +5347,15 @@ function App() {
     }
 
     if (isRoomIntro && isLastRoomIntroDialogue) {
-      setTransitionText('-対策フェーズ開始-')
-      setIsTransitioning(true)
+      startTextTransition('対策フェーズ開始', currentPreparationRoomBackground)
 
       window.setTimeout(() => {
         setScreen('preparation')
         setRoomIntroIndex(0)
         addDialogueLog(getPreparationDialogue(currentDay))
-      }, 140)
+      }, textTransitionSwitchDelayMs)
 
-      window.setTimeout(() => {
-        setIsTransitioning(false)
-        setTransitionText(null)
-      }, 620)
+      finishTransition(textTransitionDurationMs)
 
       return
     }
@@ -4989,8 +5369,7 @@ function App() {
     }
 
     if (isNight && isLastNightDialogue) {
-      setTransitionText('-災害当日-')
-      setIsTransitioning(true)
+      startTextTransition('災害当日', currentPreparationRoomBackground)
 
       window.setTimeout(() => {
         setCurrentDay(0)
@@ -4998,9 +5377,9 @@ function App() {
         setNightDialogueIndex(0)
         setDayStartDialogueIndex(0)
         addDialogueLog(dayStartDialoguesByDay[0][0])
-      }, 140)
+      }, textTransitionSwitchDelayMs)
 
-      finishTransition()
+      finishTransition(textTransitionDurationMs)
       return
     }
 
@@ -5013,16 +5392,15 @@ function App() {
     }
 
     if (isDayStart && isLastDayStartDialogue) {
-      setTransitionText('-対策フェーズ-')
-      setIsTransitioning(true)
+      startTextTransition('対策フェーズ', currentPreparationRoomBackground)
 
       window.setTimeout(() => {
         setScreen('preparation')
         setDayStartDialogueIndex(0)
         addDialogueLog(getPreparationDialogue(currentDay))
-      }, 140)
+      }, textTransitionSwitchDelayMs)
 
-      finishTransition()
+      finishTransition(textTransitionDurationMs)
       return
     }
 
@@ -5041,8 +5419,10 @@ function App() {
     }
 
     if (isQuakeArrival) {
-      setTransitionText('-地震発生-')
-      setIsTransitioning(true)
+      startTextTransition(
+        '地震発生',
+        isFurnitureFastenerUsed ? fixedAfterDisasterBackground : afterDisasterBackground,
+      )
 
       window.setTimeout(() => {
         setScreen('post-disaster')
@@ -5071,15 +5451,19 @@ function App() {
             stopShaking()
           }
         }, 320)
-      }, 140)
+      }, textTransitionSwitchDelayMs)
 
-      finishTransition()
+      finishTransition(textTransitionDurationMs)
       return
     }
 
     if (isPostDisaster && isLastPostDisasterDialogue) {
-      setTransitionText('-脱出開始-')
-      setIsTransitioning(true)
+      startTextTransition(
+        '第二章　決められた未来で',
+        isFurnitureFastenerUsed
+          ? currentEscapeStep.background
+          : currentEscapeStep.nightBackground,
+      )
 
       window.setTimeout(() => {
         setIsLogOpen(false)
@@ -5111,9 +5495,9 @@ function App() {
         setHasCheckedEscapeShelter(false)
         setPostDisasterDialogueIndex(0)
         addDialogueLog(escapeDialogue)
-      }, 140)
+      }, textTransitionSwitchDelayMs)
 
-      finishTransition()
+      finishTransition(textTransitionDurationMs)
       return
     }
 
@@ -5128,17 +5512,24 @@ function App() {
     if (isShelterArrival) {
       const shouldGoNormalEnd = isHotBloodRescueComplete || isFollowingEvacuationGuide
       const shouldGoBadEnd = escapeOutcome === 'bad' && !shouldGoNormalEnd
-
-      setTransitionText(
-        shouldGoBadEnd
-          ? '-Bad End-'
-          : isHotBloodRescueComplete
-            ? '-BURNING END-'
+      const nextEndBackground = shouldGoBadEnd
+        ? badEndBackground
+        : isHotBloodRescueComplete
+          ? hotBloodNormalEndBackground
           : shouldGoNormalEnd
-            ? '-Normal End-'
-            : '-True End-',
+            ? normalEndBackground
+            : trueEndBackground
+
+      startTextTransition(
+        shouldGoBadEnd
+          ? 'Bad End'
+          : isHotBloodRescueComplete
+            ? 'BURNING END'
+          : shouldGoNormalEnd
+            ? 'Normal End'
+            : 'True End',
+        nextEndBackground,
       )
-      setIsTransitioning(true)
 
       window.setTimeout(() => {
         setIsLogOpen(false)
@@ -5156,15 +5547,14 @@ function App() {
 
         setScreen('true-end')
         addDialogueLog(trueEndDialogue)
-      }, 140)
+      }, textTransitionSwitchDelayMs)
 
-      finishTransition()
+      finishTransition(textTransitionDurationMs)
       return
     }
 
     if (isTrueEnd) {
-      setTransitionText('-今回の振り返り-')
-      setIsTransitioning(true)
+      startTextTransition('今回の振り返り', trueEndBackground)
 
       window.setTimeout(() => {
         setIsUiHidden(false)
@@ -5174,15 +5564,17 @@ function App() {
         setScreen('result-review')
         addDialogueLog(resultReviewDialogue)
         playModalSound()
-      }, 140)
+      }, textTransitionSwitchDelayMs)
 
-      finishTransition()
+      finishTransition(textTransitionDurationMs)
       return
     }
 
     if (isNormalEnd) {
-      setTransitionText('-今回の振り返り-')
-      setIsTransitioning(true)
+      startTextTransition(
+        '今回の振り返り',
+        isHotBloodRescueComplete ? hotBloodNormalEndBackground : normalEndBackground,
+      )
 
       window.setTimeout(() => {
         setIsUiHidden(false)
@@ -5192,15 +5584,14 @@ function App() {
         setScreen('result-review')
         addDialogueLog(resultReviewDialogue)
         playModalSound()
-      }, 140)
+      }, textTransitionSwitchDelayMs)
 
-      finishTransition()
+      finishTransition(textTransitionDurationMs)
       return
     }
 
     if (isUfoEnd) {
-      setTransitionText('-今回の振り返り-')
-      setIsTransitioning(true)
+      startTextTransition('今回の振り返り', ufoEndBackground)
 
       window.setTimeout(() => {
         setIsUiHidden(false)
@@ -5210,15 +5601,14 @@ function App() {
         setScreen('result-review')
         addDialogueLog(resultReviewDialogue)
         playModalSound()
-      }, 140)
+      }, textTransitionSwitchDelayMs)
 
-      finishTransition()
+      finishTransition(textTransitionDurationMs)
       return
     }
 
     if (isFriendsEnd) {
-      setTransitionText('-今回の振り返り-')
-      setIsTransitioning(true)
+      startTextTransition('今回の振り返り', friendsEndBackground)
 
       window.setTimeout(() => {
         setIsUiHidden(false)
@@ -5228,15 +5618,14 @@ function App() {
         setScreen('result-review')
         addDialogueLog(resultReviewDialogue)
         playModalSound()
-      }, 140)
+      }, textTransitionSwitchDelayMs)
 
-      finishTransition()
+      finishTransition(textTransitionDurationMs)
       return
     }
 
     if (isBadEnd) {
-      setTransitionText('-今回の振り返り-')
-      setIsTransitioning(true)
+      startTextTransition('今回の振り返り', badEndBackground)
 
       window.setTimeout(() => {
         setIsUiHidden(false)
@@ -5246,35 +5635,33 @@ function App() {
         setScreen('result-review')
         addDialogueLog(resultReviewDialogue)
         playModalSound()
-      }, 140)
+      }, textTransitionSwitchDelayMs)
 
-      finishTransition()
+      finishTransition(textTransitionDurationMs)
       return
     }
 
     if (isResultReview) {
-      setTransitionText('-現実のあなたへ-')
-      setIsTransitioning(true)
+      startTextTransition('現実のあなたへ', currentPreparationRoomBackground)
 
       window.setTimeout(() => {
         setScreen('real-life-message')
         addDialogueLog(realLifeDialogue)
         playModalSound()
-      }, 140)
+      }, textTransitionSwitchDelayMs)
 
-      finishTransition()
+      finishTransition(textTransitionDurationMs)
       return
     }
 
     if (isRealLifeMessage) {
-      setTransitionText('-これからどうする？-')
-      setIsTransitioning(true)
+      startTextTransition('これからどうする？', currentPreparationRoomBackground)
 
       window.setTimeout(() => {
         setScreen('ending-actions')
-      }, 140)
+      }, textTransitionSwitchDelayMs)
 
-      finishTransition()
+      finishTransition(textTransitionDurationMs)
     }
   }
 
@@ -5324,6 +5711,8 @@ function App() {
         } ${
           isPreparationGuideActive ? 'is-preparation-guide' : ''
         } ${
+          isPhoneGuideActive ? 'is-phone-guide' : ''
+        } ${
           isEscapeGuideActive ? 'is-escape-guide' : ''
         } ${
           isEscapeBackpackGuideActive ? 'is-escape-backpack-guide' : ''
@@ -5337,7 +5726,7 @@ function App() {
         style={{
           backgroundImage: `url("${
             isBookWarning
-              ? dialogueIndex === 1
+              ? dialogueIndex >= 1
                 ? futureBookCutBackground
                 : bookWarningBackground
               : isFutureBookCut
@@ -5434,11 +5823,6 @@ function App() {
             >
               開発者モード
             </button>
-            <p className="start-display-note">
-              推奨表示: ブラウザズーム80%
-              <br />
-              画面が大きく表示される場合は、ズームを80%にしてください。
-            </p>
           </>
         )}
 
@@ -5484,11 +5868,38 @@ function App() {
           aria-hidden="true"
         />
         <div
-          className={`scene-transition ${isTransitioning ? 'is-active' : ''}`}
+          className={`scene-transition ${
+            isTransitioning ? 'is-active' : ''
+          } ${
+            transitionText || transitionVariant === 'chapter'
+              ? 'is-chapter-title'
+              : ''
+          }`}
           aria-hidden="true"
         >
+          {transitionBackgroundImage && (
+            <div
+              className="transition-background"
+              style={{
+                backgroundImage: `url("${transitionBackgroundImage}")`,
+              }}
+            />
+          )}
           {transitionText && (
-            <strong className="transition-title">{transitionText}</strong>
+            <strong
+              className="transition-title"
+              style={
+                {
+                  '--transition-title-steps': Math.max(
+                    [...transitionText].filter((character) => character.trim())
+                      .length,
+                    1,
+                  ),
+                } as CSSProperties
+              }
+            >
+              {transitionText}
+            </strong>
           )}
         </div>
 
@@ -5682,6 +6093,18 @@ function App() {
                 onBlur={() => setHoveredAction(null)}
                 onClick={() => {
                   setHoveredAction(null)
+
+                  if (ownedBackpackItems.length === 0) {
+                    const noBackpackItemsDialogue = {
+                      speaker: 'ナレーション',
+                      text: 'まだリュックに入れられるアイテムがありません。まずはショップでアイテムを購入しよう。',
+                    }
+
+                    setMeasureResultDialogue(noBackpackItemsDialogue)
+                    addDialogueLog(noBackpackItemsDialogue)
+                    return
+                  }
+
                   setBackpackReturnScreen('preparation')
                   addDialogueLog({
                     speaker: 'ナレーション',
@@ -5893,98 +6316,131 @@ function App() {
 
         {(isPreparation || isEscape) && isPhoneOpen && !isUiHidden && (
           <div
-            className={`phone-overlay ${usesPhoneDetailShell ? 'is-detail' : ''}`}
+            className={`phone-overlay ${usesPhoneDetailShell ? 'is-detail' : ''} ${
+              isPhoneGuideActive ? 'is-phone-guide' : ''
+            }`}
             aria-label="スマホ画面"
             onClick={handleClosePhone}
           >
             <div
               className={`phone-screen-shell ${
                 usesPhoneDetailShell ? 'is-detail' : ''
-              } ${usesTallPhoneDetailFrame ? 'is-tall-detail-frame' : ''}`}
+              } ${usesTallPhoneDetailFrame ? 'is-tall-detail-frame' : ''} ${
+                isPhoneGuideTarget('phone') ? 'is-guide-target' : ''
+              }`}
               onClick={(event) => event.stopPropagation()}
             >
               <img
                 src={phoneFrameImage}
                 alt=""
               />
-              {isEscapePhoneBlocked ? null : phoneAppView === 'home' ? (
-                <div className="phone-app-grid" aria-label="スマホアプリ">
-                  <button
-                    type="button"
-                    aria-label={`連絡${storyFlags.contactedFamily ? '済み' : ''}`}
-                    onClick={() =>
-                      handlePhoneAction(
-                        'contactedFamily',
-                        '家族に連絡して、地震への備えを共有した。',
-                        'contact',
-                      )
-                    }
-                  >
-                    <img src={phoneMessageAppIcon} alt="" />
-                    {hasUnreadEscapeFriendMessage && (
-                      <span className="phone-notification-badge">1</span>
-                    )}
-                    <span>連絡{storyFlags.contactedFamily ? '済み' : ''}</span>
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`ニュース${storyFlags.checkedNews ? '確認済み' : ''}`}
-                    onClick={() =>
-                      handlePhoneAction(
-                        'checkedNews',
-                        'ニュースで防災情報と最新の注意点を確認した。',
-                        'news',
-                      )
-                    }
-                  >
-                    <img src={phoneNewsAppIcon} alt="" />
-                    <span>ニュース{storyFlags.checkedNews ? '確認済み' : ''}</span>
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`避難場所${storyFlags.checkedShelter ? '確認済み' : ''}`}
-                    onClick={() =>
-                      handlePhoneAction(
-                        'checkedShelter',
-                        '避難場所と避難経路を確認した。',
-                        'shelter',
-                      )
-                    }
-                  >
-                    <img src={phoneMapAppIcon} alt="" />
-                    <span>避難場所{storyFlags.checkedShelter ? '確認済み' : ''}</span>
-                  </button>
+              {phoneActionNotice && (
+                <div className="phone-action-notice" role="status">
+                  {phoneActionNotice}
                 </div>
+              )}
+              {isPhoneGuideActive && (
+                <div className="phone-guide-dim" aria-hidden="true" />
+              )}
+              {isEscapePhoneBlocked ? null : phoneAppView === 'home' ? (
+                <>
+                  {isPreparation &&
+                    !isEscapePhoneBlocked &&
+                    renderPhoneActionLimitBadge('is-home')}
+                  <div className="phone-app-grid" aria-label="スマホアプリ">
+                    <button
+                      type="button"
+                      className={isPhoneGuideTarget('contact') ? 'is-guide-target' : ''}
+                      aria-label={`連絡${
+                        !isEscape && storyFlags.contactedFamily ? '済み' : ''
+                      }`}
+                      onClick={() =>
+                        handlePhoneAction(
+                          'contactedFamily',
+                          isEscape
+                            ? '連絡アプリを開いた。安否確認のメッセージを送れそうだ。'
+                            : '家族に連絡して、地震への備えを共有した。',
+                          'contact',
+                        )
+                      }
+                    >
+                      <img src={phoneMessageAppIcon} alt="" />
+                      {hasUnreadEscapeFriendMessage && (
+                        <span className="phone-notification-badge">1</span>
+                      )}
+                      <span>連絡{!isEscape && storyFlags.contactedFamily ? '済み' : ''}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={isPhoneGuideTarget('news') ? 'is-guide-target' : ''}
+                      aria-label={`ニュース${storyFlags.checkedNews ? '確認済み' : ''}`}
+                      onClick={() =>
+                        handlePhoneAction(
+                          'checkedNews',
+                          'ニュースで防災情報と最新の注意点を確認した。',
+                          'news',
+                        )
+                      }
+                    >
+                      <img src={phoneNewsAppIcon} alt="" />
+                      <span>ニュース{storyFlags.checkedNews ? '確認済み' : ''}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={isPhoneGuideTarget('shelter') ? 'is-guide-target' : ''}
+                      aria-label={`避難場所${storyFlags.checkedShelter ? '確認済み' : ''}`}
+                      onClick={() =>
+                        handlePhoneAction(
+                          'checkedShelter',
+                          '避難場所と避難経路を確認した。',
+                          'shelter',
+                        )
+                      }
+                    >
+                      <img src={phoneMapAppIcon} alt="" />
+                      <span>避難場所{storyFlags.checkedShelter ? '確認済み' : ''}</span>
+                    </button>
+                  </div>
+                </>
               ) : (
                 <div className="phone-detail-app">
-                  <button
-                    type="button"
-                    className="phone-detail-back"
-                    onClick={() => {
-                      if (phoneAppView === 'contact' && selectedContact) {
+                  <div className="phone-detail-topbar">
+                    <button
+                      type="button"
+                      className="phone-detail-back"
+                      onClick={() => {
+                        if (phoneAppView === 'contact' && selectedContact) {
+                          setSelectedContactId(null)
+                          setIsContactReplyMenuOpen(false)
+                          setPhoneActionNotice(null)
+                          return
+                        }
+
+                        if (phoneAppView === 'news' && selectedNewsArticle) {
+                          setSelectedNewsArticleId(null)
+                          setPhoneActionNotice(null)
+                          return
+                        }
+
+                        if (phoneAppView === 'shelter' && isShelterDetailOpen) {
+                          setIsShelterDetailOpen(false)
+                          setPhoneActionNotice(null)
+                          return
+                        }
+
+                        setPhoneAppView('home')
                         setSelectedContactId(null)
-                        setIsContactReplyMenuOpen(false)
-                        return
-                      }
-
-                      if (phoneAppView === 'news' && selectedNewsArticle) {
                         setSelectedNewsArticleId(null)
-                        return
-                      }
-
-                      if (phoneAppView === 'shelter' && isShelterDetailOpen) {
                         setIsShelterDetailOpen(false)
-                        return
-                      }
-
-                      setPhoneAppView('home')
-                      setSelectedContactId(null)
-                      setSelectedNewsArticleId(null)
-                      setIsShelterDetailOpen(false)
-                    }}
-                  >
-                    戻る
-                  </button>
+                        setPhoneActionNotice(null)
+                      }}
+                    >
+                      戻る
+                    </button>
+                    {isPreparation &&
+                      !isEscapePhoneBlocked &&
+                      renderPhoneActionLimitBadge('is-detail')}
+                  </div>
                   {phoneAppView === 'contact' ? (
                     <div className="phone-chat-app" aria-label="連絡">
                       {selectedContact ? (
@@ -6025,6 +6481,23 @@ function App() {
                                       {currentEscapeFriendReply.text}
                                     </button>
                                   )
+                                ) : isPostDisasterContactChatActive ? (
+                                  selectedContact.postDisasterReplies.map((reply) => (
+                                    <button
+                                      type="button"
+                                      key={reply.textWhenPrepared}
+                                      onClick={() =>
+                                        handlePostDisasterContactQuickReply(
+                                          selectedContact.id,
+                                          reply,
+                                        )
+                                      }
+                                    >
+                                      {contactReplyLog[selectedContact.id].length > 0
+                                        ? reply.textWhenPrepared
+                                        : reply.textWhenUnprepared}
+                                    </button>
+                                  ))
                                 ) : (
                                   selectedContact.quickReplies.map((reply) => (
                                     <button
@@ -6054,10 +6527,12 @@ function App() {
                             >
                               {isEscapeFriendResponsePending
                                 ? '返信を待っています...'
-                                : pendingContactResponseId === selectedContact.id
-                                  ? '返信を待っています...'
+                                  : pendingContactResponseId === selectedContact.id
+                                    ? '返信を待っています...'
                                   : hasSelectedContactReply
                                     ? '送信済み'
+                                  : isPostDisasterContactChatActive
+                                    ? '安否確認を送る...'
                                   : 'メッセージを選択...'}
                             </button>
                           </div>
@@ -6081,16 +6556,7 @@ function App() {
                                   key={contact.id}
                                   className={hasUnreadMessage ? 'has-unread-message' : ''}
                                   onClick={() => {
-                                    if (
-                                      contact.id === 'friend' &&
-                                      isEscapeFriendNotificationAvailable
-                                    ) {
-                                      handleOpenEscapeFriendMessages()
-                                      return
-                                    }
-
-                                    setSelectedContactId(contact.id)
-                                    setIsContactReplyMenuOpen(false)
+                                    handleOpenContactThread(contact.id)
                                   }}
                                 >
                                   <div className="chat-avatar" aria-hidden="true">
@@ -6143,7 +6609,7 @@ function App() {
                           <button
                             type="button"
                             className="phone-news-feature"
-                            onClick={() => setSelectedNewsArticleId('preparedness')}
+                            onClick={() => handleOpenNewsArticle('preparedness')}
                           >
                             <img
                               className="phone-news-thumbnail"
@@ -6163,7 +6629,7 @@ function App() {
                               <button
                                 type="button"
                                 key={article.id}
-                                onClick={() => setSelectedNewsArticleId(article.id)}
+                                onClick={() => handleOpenNewsArticle(article.id)}
                               >
                                 <img
                                   className="phone-news-thumbnail"
@@ -6268,7 +6734,7 @@ function App() {
                           type="button"
                           className="map-pin map-pin-shelter"
                           style={mapPointToPercent(shelterMapPoint)}
-                          onClick={() => setIsShelterDetailOpen(true)}
+                          onClick={handleOpenShelterDetail}
                           aria-label="中央小学校の詳細を表示"
                         >
                           <span>避難場所</span>
@@ -6277,7 +6743,7 @@ function App() {
                       <button
                         type="button"
                         className="phone-map-card"
-                        onClick={() => setIsShelterDetailOpen(true)}
+                        onClick={handleOpenShelterDetail}
                         aria-expanded={isShelterDetailOpen}
                       >
                         <div>
@@ -6769,546 +7235,3 @@ function App() {
 
 export default App
 
-//　これはコメントアウトされた古いコードです。新しいコードは上記の通りです。菊池駿一
-// import { useEffect, useRef, useState } from 'react'
-// import backpackBackground from './assets/backgrounds/リュック画面.png'
-// import bookWarningBackground from './assets/backgrounds/予告本画面.png'
-// import normalRoomBackground from './assets/backgrounds/通常部屋画面.png'
-// import backpackIcon from './assets/icons/リュックicon.png'
-// import shopIcon from './assets/icons/ショップicon.png'
-// import './App.css'
-// import ShopScreen from './screens/ShopScreen'
-
-// type Screen = 'book-warning' | 'room-intro' | 'preparation' | 'backpack' | 'shop'
-
-// type Dialogue = {
-//   speaker: string
-//   text: string
-// }
-
-// const bookWarningDialogues: Dialogue[] = [
-//   {
-//     speaker: '主人公',
-//     text: '……なんだ、この本。',
-//   },
-//   {
-//     speaker: '主人公',
-//     text: '『ワイが見た未来』……？',
-//   },
-//   {
-//     speaker: '主人公',
-//     text: '三日後、この街で大きな地震が起こる……って書いてある。',
-//   },
-//   {
-//     speaker: '主人公',
-//     text: 'ただの作り話だよな。でも、なぜか嫌な感じがする。',
-//   },
-//   {
-//     speaker: '主人公',
-//     text: '何か、今のうちにできることをしておいた方がいいかもしれない。',
-//   },
-// ]
-
-// const roomDialogue: Dialogue = {
-//   speaker: 'ナレーション',
-//   text: '地震が起こるとされる日まで、あと3日。何をするか選ぼう。',
-// }
-
-// const roomIntroDialogues: Dialogue[] = [
-//   {
-//     speaker: '主人公',
-//     text: '……いつもの部屋なのに、さっきの本のことが頭から離れない。',
-//   },
-//   {
-//     speaker: '主人公',
-//     text: 'もし本当に地震が来るなら、今のうちにできることを考えないと。',
-//   },
-// ]
-// // 追加：購入済みアイテムの管理この管理は0か1で持っているか管理する
-// const backpackItems = [
-//   {
-//     id: 'water',
-//     name: '飲料水',
-//     description: '地震後に水分を確保するための大切な備え。',
-//   },
-//   {
-//     id: 'emergency-food',
-//     name: '非常食セット',
-//     description: '避難後や停電時でも食べられる食料。',
-//   },
-//   {
-//     id: 'flashlight',
-//     name: '懐中電灯',
-//     description: '停電した部屋や夜の避難で足元を照らせる。',
-//   },
-//   {
-//     id: 'power-bank',
-//     name: 'モバイルバッテリー',
-//     description: 'スマホの充電を保ち、連絡や情報確認を続けられる。',
-//   },
-//   {
-//     id: 'first-aid-kit',
-//     name: '救急セット',
-//     description: '軽いけがをしたときに応急処置ができる。',
-//   },
-//   {
-//     id: 'furniture-fasteners',
-//     name: '家具固定器具',
-//     description: '棚や家具を固定して、揺れで倒れる危険を減らせる。',
-//   },
-//   {
-//     id: 'window-film',
-//     name: '窓ガラス飛散防止フィルム',
-//     description: '割れたガラスが飛び散るのを防ぎ、けがをしにくくする。',
-//   },
-//   {
-//     id: 'radio',
-//     name: '携帯ラジオ',
-//     description: '停電や通信障害のときでも避難情報を確認できる。',
-//   },
-//   {
-//     id: 'gloves-slippers',
-//     name: '軍手・厚底スリッパ',
-//     description: '割れたガラスや散乱物の上を歩くときに足元を守れる。',
-//   },
-//   {
-//     id: 'canned-food',
-//     name: '缶詰',
-//     description: '火や水が使えない状況でも食べられる保存食。',
-//   },
-//   {
-//     id: 'nutrition-supplements',
-//     name: '栄養補助食品',
-//     description: '短時間で食べられて、避難中の体力を保ちやすい。',
-//   },
-//   {
-//     id: 'retort-pizza',
-//     name: '冷凍ピザ',
-//     description: '自宅に残る場合や避難生活で役立つ備蓄食。',
-//   },
-//   {
-//     id: 'portable-toilet',
-//     name: '白米',
-//     description: '断水したときや避難所でトイレに困りにくくなる。',
-//   },
-//   {
-//     id: 'medication',
-//     name: '痛み止め',
-//     description: '体調不良や持病がある場合に欠かせない備え。',
-//   },
-//   {
-//     id: 'disinfectant',
-//     name: '消毒液・ウェットシート',
-//     description: '手や傷口を清潔にして、衛生状態を保ちやすくする。'
-//   },
-//   {
-//     id: 'mask',
-//     name: 'マスク',
-//     description: '粉じんや避難所での衛生対策に使える。',
-//   },
-//   {
-//     id: 'thermometer',
-//     name: '体温計',
-//     description: '避難中や避難所で体調を確認するときに役立つ。',
-//   },
-//   {
-//     id: 'cooling-blanket',
-//     name: '冷却シート・保温シート',
-//     description: '暑さや寒さから体を守り、避難生活の負担を減らせる。',
-//   },
-// ]
-
-// function App() {
-//   const [screen, setScreen] = useState<Screen>('book-warning')
-//   const [dialogueIndex, setDialogueIndex] = useState(0)
-//   const [roomIntroIndex, setRoomIntroIndex] = useState(0)
-//   const [isTransitioning, setIsTransitioning] = useState(false)
-//   const [transitionText, setTransitionText] = useState<string | null>(null)
-//   const [hoveredAction, setHoveredAction] = useState<string | null>(null)
-//   const [hoveredItem, setHoveredItem] = useState<(typeof backpackItems)[number] | null>(
-//     null,
-//   )
-//   const [selectedItem, setSelectedItem] = useState<(typeof backpackItems)[number] | null>(
-//     null,
-//   )
-//   const [isUiHidden, setIsUiHidden] = useState(false)
-//   const [isLogOpen, setIsLogOpen] = useState(false)
-//   const [dialogueLog, setDialogueLog] = useState<Dialogue[]>([
-//     bookWarningDialogues[0],
-//   ])
-//   const logBodyRef = useRef<HTMLDivElement | null>(null)
-
-//   const isBookWarning = screen === 'book-warning'
-//   const isRoomIntro = screen === 'room-intro'
-//   const isPreparation = screen === 'preparation'
-//   const isBackpack = screen === 'backpack'
-//   const isShop = screen === 'shop'
-//   const currentDialogue = isBookWarning
-//     ? bookWarningDialogues[dialogueIndex]
-//     : isRoomIntro
-//       ? roomIntroDialogues[roomIntroIndex]
-//       : hoveredAction === 'shop'
-//         ? {
-//             speaker: 'ナレーション',
-//             text: 'ショップに行きますか？',
-//           }
-//         : hoveredAction === 'backpack'
-//           ? {
-//               speaker: 'ナレーション',
-//               text: 'リュックを整理しますか？',
-//             }
-//           : hoveredAction === 'phase'
-//             ? {
-//                 speaker: 'ナレーション',
-//                 text: '何か対策をしよう。',
-//               }
-//             : hoveredAction === 'days-left'
-//               ? {
-//                   speaker: '主人公',
-//                   text: 'あと三日で地震が起こるはず……何か対策しないと。',
-//                 }
-//               : isBackpack
-//                 ? selectedItem
-//                   ? {
-//                       speaker: 'ナレーション',
-//                       text: `${selectedItem.name}を使いますか？`,
-//                     }
-//                   : hoveredItem
-//                     ? {
-//                         speaker: hoveredItem.name,
-//                         text: hoveredItem.description,
-//                       }
-//                     : {
-//                         speaker: 'ナレーション',
-//                         text: '持っているものを確認して、非常用リュックに入れる準備をしよう。',
-//                       }
-//                 : roomDialogue
-//   const isLastBookDialogue =
-//     isBookWarning && dialogueIndex === bookWarningDialogues.length - 1
-//   const isLastRoomIntroDialogue =
-//     isRoomIntro && roomIntroIndex === roomIntroDialogues.length - 1
-
-//   useEffect(() => {
-//     if (isLogOpen && logBodyRef.current) {
-//       logBodyRef.current.scrollTop = logBodyRef.current.scrollHeight
-//     }
-//   }, [isLogOpen, dialogueLog])
-
-//   const addDialogueLog = (dialogue: Dialogue) => {
-//   setDialogueLog((current) => {
-//     const latest = current.at(-1)
-
-//     if (latest?.speaker === dialogue.speaker && latest.text === dialogue.text) {
-//       return current
-//     }
-
-//     return [...current, dialogue]
-//   })
-// }
-
-// // 追加：購入アイテム管理
-// const buyItem = (itemId: string) => {
-//   setPurchasedItems((current) => {
-//     if (current.includes(itemId)) {
-//       return current
-//     }
-
-//     return [...current, itemId]
-//   })
-// }
-
-// // 追加：購入済み判定
-// const hasPurchasedItem = (itemId: string) => {
-//   return purchasedItems.includes(itemId)
-// }
-
-//   const handleNextDialogue = () => {
-//     if (isTransitioning) {
-//       return
-//     }
-
-//     if (isBookWarning && isLastBookDialogue) {
-//       setIsTransitioning(true)
-
-//       window.setTimeout(() => {
-//         setScreen('room-intro')
-//         setDialogueIndex(0)
-//         addDialogueLog(roomIntroDialogues[0])
-//       }, 140)
-
-//       window.setTimeout(() => {
-//         setIsTransitioning(false)
-//       }, 520)
-
-//       return
-//     }
-
-//     if (isBookWarning) {
-//       const nextIndex = dialogueIndex + 1
-
-//       setDialogueIndex(nextIndex)
-//       addDialogueLog(bookWarningDialogues[nextIndex])
-//       return
-//     }
-
-//     if (isRoomIntro && isLastRoomIntroDialogue) {
-//       setTransitionText('-対策フェーズ開始-')
-//       setIsTransitioning(true)
-
-//       window.setTimeout(() => {
-//         setScreen('preparation')
-//         setRoomIntroIndex(0)
-//         addDialogueLog(roomDialogue)
-//       }, 140)
-
-//       window.setTimeout(() => {
-//         setIsTransitioning(false)
-//         setTransitionText(null)
-//       }, 620)
-
-//       return
-//     }
-
-//     if (isRoomIntro) {
-//       const nextIndex = roomIntroIndex + 1
-
-//       setRoomIntroIndex(nextIndex)
-//       addDialogueLog(roomIntroDialogues[nextIndex])
-//     }
-//   }
-
-//   if (isShop) {
-//     return (
-//       <ShopScreen
-//         onBack={() => {
-//           addDialogueLog(roomDialogue)
-//           setScreen('preparation')
-//         }}
-//         onBuy={(itemId) => {
-//           addDialogueLog({
-//             speaker: 'ナレーション',
-//             text: `${itemId}を購入した。`,
-//           })
-//         }}
-//       />
-//     )
-//   }
-
-//   return (
-//     <main className="game-screen">
-//       <section
-//         className="scene"
-//         style={{
-//           backgroundImage: `url(${
-//             isBookWarning
-//               ? bookWarningBackground
-//               : isBackpack
-//                 ? backpackBackground
-//                 : normalRoomBackground
-//           })`,
-//         }}
-//         aria-label={
-//           isBookWarning
-//             ? '予告本を見る場面'
-//             : isBackpack
-//               ? 'リュックを整理する場面'
-//               : '主人公の部屋'
-//         }
-//       >
-//         <div
-//           className={`scene-transition ${isTransitioning ? 'is-active' : ''}`}
-//           aria-hidden="true"
-//         >
-//           {transitionText && (
-//             <strong className="transition-title">{transitionText}</strong>
-//           )}
-//         </div>
-
-//         <button
-//           type="button"
-//           className="ui-toggle"
-//           onClick={() => setIsUiHidden((current) => !current)}
-//         >
-//           {isUiHidden ? 'UI表示' : 'UI非表示'}
-//         </button>
-
-//         {!isUiHidden && (
-//           <button
-//             type="button"
-//             className={`log-toggle ${isBackpack ? 'is-backpack' : ''}`}
-//             onClick={() => setIsLogOpen(true)}
-//           >
-//             テキストログ
-//           </button>
-//         )}
-
-//         {isPreparation && !isUiHidden && (
-//           <>
-//             <header className="game-header">
-//               <div
-//                 className="game-header-days"
-//                 onMouseEnter={() => setHoveredAction('days-left')}
-//                 onMouseLeave={() => setHoveredAction(null)}
-//                 onFocus={() => setHoveredAction('days-left')}
-//                 onBlur={() => setHoveredAction(null)}
-//                 tabIndex={0}
-//                 aria-label="地震発生までの残り日数"
-//               >
-//                 災害まで3日
-//               </div>
-//               <div
-//                 className="game-header-title"
-//                 onMouseEnter={() => setHoveredAction('phase')}
-//                 onMouseLeave={() => setHoveredAction(null)}
-//                 onFocus={() => setHoveredAction('phase')}
-//                 onBlur={() => setHoveredAction(null)}
-//                 tabIndex={0}
-//                 aria-label="現在のフェーズ"
-//               >
-//                 対策フェーズ中
-//               </div>
-//               <div className="game-header-action" aria-hidden="true" />
-//             </header>
-//             <div className="action-icons" aria-label="対策行動">
-//               <button
-//                 type="button"
-//                 className="action-icon-button"
-//                 onMouseEnter={() => setHoveredAction('shop')}
-//                 onMouseLeave={() => setHoveredAction(null)}
-//                 onFocus={() => setHoveredAction('shop')}
-//                 onBlur={() => setHoveredAction(null)}
-//                 onClick={() => {
-//                   setHoveredAction(null)
-//                   addDialogueLog({
-//                     speaker: 'ナレーション',
-//                     text: 'ショップで必要な防災用品を確認しよう。',
-//                   })
-//                   setScreen('shop')
-//                 }}
-//               >
-//                 <img src={shopIcon} alt="" />
-//                 <span>ショップ</span>
-//               </button>
-//               <button
-//                 type="button"
-//                 className="action-icon-button"
-//                 onMouseEnter={() => setHoveredAction('backpack')}
-//                 onMouseLeave={() => setHoveredAction(null)}
-//                 onFocus={() => setHoveredAction('backpack')}
-//                 onBlur={() => setHoveredAction(null)}
-//                 onClick={() => {
-//                   setHoveredAction(null)
-//                   addDialogueLog({
-//                     speaker: 'ナレーション',
-//                     text: '持っているものを確認して、非常用リュックに入れる準備をしよう。',
-//                   })
-//                   setScreen('backpack')
-//                 }}
-//               >
-//                 <img src={backpackIcon} alt="" />
-//                 <span>リュック</span>
-//               </button>
-//             </div>
-//           </>
-//         )}
-
-//         {isBackpack && !isUiHidden && (
-//           <>
-//             <header className="game-header">
-//               <div className="game-header-days">災害まで3日</div>
-//               <div className="game-header-title">リュック</div>
-//               <button
-//                 type="button"
-//                 className="game-header-action"
-//                 onClick={() => {
-//                   setHoveredItem(null)
-//                   setSelectedItem(null)
-//                   addDialogueLog(roomDialogue)
-//                   setScreen('preparation')
-//                 }}
-//               >
-//                 対策に戻る
-//               </button>
-//             </header>
-//             <aside className="inventory-panel" aria-label="現在持っているアイテム">
-//               <h2>持っているアイテム</h2>
-//               <ul>
-//                 {backpackItems.map((item) => (
-//                   <li key={item.name}>
-//                     <button
-//                       type="button"
-//                       onMouseEnter={() => setHoveredItem(item)}
-//                       onMouseLeave={() => setHoveredItem(null)}
-//                       onFocus={() => setHoveredItem(item)}
-//                       onBlur={() => setHoveredItem(null)}
-//                       onClick={() => {
-//                         setSelectedItem(item)
-//                         addDialogueLog({
-//                           speaker: 'ナレーション',
-//                           text: `${item.name}を使いますか？`,
-//                         })
-//                       }}
-//                     >
-//                       <span className="item-icon-slot" aria-hidden="true" />
-//                       <span>{item.name}</span>
-//                     </button>
-//                   </li>
-//                 ))}
-//               </ul>
-//             </aside>
-//           </>
-//         )}
-
-//         {isBackpack && selectedItem && !isUiHidden && (
-//           <div className="confirm-actions" aria-label="アイテム使用確認">
-//             <button type="button" onClick={() => setSelectedItem(null)}>
-//               はい
-//             </button>
-//             <button type="button" onClick={() => setSelectedItem(null)}>
-//               いいえ
-//             </button>
-//           </div>
-//         )}
-
-//         {isLogOpen && (
-//           <div className="text-log-overlay" role="dialog" aria-modal="true">
-//             <section className="text-log-panel" aria-label="テキストログ">
-//               <div className="text-log-header">
-//                 <h2>テキストログ</h2>
-//                 <button type="button" onClick={() => setIsLogOpen(false)}>
-//                   閉じる
-//                 </button>
-//               </div>
-//               <div className="text-log-body" ref={logBodyRef}>
-//                 {dialogueLog.map((dialogue, index) => (
-//                   <article
-//                     className="text-log-entry"
-//                     key={`${dialogue.speaker}-${dialogue.text}-${index}`}
-//                   >
-//                     <strong>{dialogue.speaker}</strong>
-//                     <p>{dialogue.text}</p>
-//                   </article>
-//                 ))}
-//               </div>
-//             </section>
-//           </div>
-//         )}
-
-//         <button
-//           type="button"
-//           className={`message-box ${isUiHidden ? 'is-hidden' : ''}`}
-//           onClick={handleNextDialogue}
-//           aria-label={isBookWarning ? '次のセリフへ進む' : '自由行動を選ぶ'}
-//         >
-//           <span className="nameplate">{currentDialogue.speaker}</span>
-//           <span className="dialogue-text">{currentDialogue.text}</span>
-//           <span className="next-mark">
-//             {isBookWarning || isRoomIntro ? '▼' : ''}
-//           </span>
-//         </button>
-//       </section>
-//     </main>
-//   )
-// }
-
-// export default App
